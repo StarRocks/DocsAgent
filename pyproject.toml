@@ -1,0 +1,29 @@
+[project]
+name = "docsagent"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Seaven",email = "seaven_7@foxmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.10,<4.0"
+dependencies = [
+    "tree-sitter (>=0.25.2,<0.26.0)",
+    "tree-sitter-java (>=0.23.5,<0.24.0)",
+    "tree-sitter-python (>=0.25.0,<0.26.0)",
+    "tree-sitter-cpp (>=0.23.4,<0.24.0)",
+    "langgraph (>=0.6.10,<0.7.0)",
+    "gitpython (>=3.1.45,<4.0.0)",
+    "loguru (>=0.7.3,<0.8.0)",
+    "tree-sitter-languages (>=1.10.2,<2.0.0)",
+    "langchain[anthropic] (>=0.3.27,<0.4.0)",
+    "langchain-openai (>=0.3.35,<0.4.0)",
+    "httpx[socks] (>=0.28.1,<0.29.0)"
+]
+
+[tool.poetry]
+packages = [{include = "docsagent", from = "src"}]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
