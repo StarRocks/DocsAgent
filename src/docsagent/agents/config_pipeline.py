@@ -3,12 +3,13 @@ DocGenerationPipeline: Orchestrate the entire documentation generation workflow
 """
 import re
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List
 from loguru import logger
 
 from docsagent.agents.config_doc_agent import ConfigDocAgent
 from docsagent.agents.translation_agent import TranslationAgent
 from docsagent.code_extract.fe_config_parser import FEConfigParser
+from docsagent.models import ConfigItem
 
 
 # Separator for combining multiple documents
@@ -18,7 +19,7 @@ DEFAULT_SEPARATOR = "<!-- CONFIG_SEP_{index} -->"
 DEFAULT_BATCH_SIZE = 10  # Adjust based on average doc length and LLM token limit
 
 
-class DocGenerationPipeline:
+class ConfigGenerationPipeline:
     """
     Main pipeline for generating multi-language configuration documentation
     
@@ -102,7 +103,7 @@ class DocGenerationPipeline:
         self, 
         config_source: str,
         limit: int = None
-    ) -> List[Dict[str, Any]]:
+    ) -> List[ConfigItem]:
         """
         Extract configuration items from source code
         
@@ -111,7 +112,7 @@ class DocGenerationPipeline:
             limit: Optional limit on number of configs (for testing)
         
         Returns:
-            List of config item dictionaries
+            List of ConfigItem objects
         """
         parser = FEConfigParser(code_paths=[config_source])
         
@@ -128,12 +129,12 @@ class DocGenerationPipeline:
         
         return all_configs
     
-    def generate_docs_batch(self, configs: List[Dict[str, Any]]) -> List[str]:
+    def generate_docs_batch(self, configs: List[ConfigItem]) -> List[str]:
         """
         Generate English documentation for all config items
         
         Args:
-            configs: List of config item dictionaries
+            configs: List of ConfigItem objects
         
         Returns:
             List of generated English documentation strings
@@ -142,29 +143,29 @@ class DocGenerationPipeline:
         total = len(configs)
         
         for i, config in enumerate(configs, 1):
-            logger.info(f"  Generating doc {i}/{total}: {config.get('name', 'unknown')}")
+            logger.info(f"  Generating doc {i}/{total}: {config.name}")
             
             try:
                 doc = self.doc_agent.generate(config)
                 docs.append(doc)
             except Exception as e:
-                logger.error(f"  Failed to generate doc for {config.get('name')}: {e}")
+                logger.error(f"  Failed to generate doc for {config.name}: {e}")
                 # Add fallback doc
-                docs.append(f"## {config.get('name', 'Unknown')}\n\nDocumentation generation failed.")
+                docs.append(f"## {config.name}\n\nDocumentation generation failed.")
         
         return docs
     
     def organize_markdown(
         self, 
         docs: List[str], 
-        configs: List[Dict[str, Any]]
+        configs: List[ConfigItem]
     ) -> str:
         """
         Organize individual documentation into a complete Markdown document
         
         Args:
             docs: List of documentation strings
-            configs: List of config items (for generating TOC)
+            configs: List of ConfigItem objects (for generating TOC)
         
         Returns:
             Complete Markdown document with TOC
@@ -195,12 +196,12 @@ class DocGenerationPipeline:
         
         return full_doc
     
-    def _generate_toc(self, configs: List[Dict[str, Any]]) -> str:
+    def _generate_toc(self, configs: List[ConfigItem]) -> str:
         """
         Generate table of contents from config items
         
         Args:
-            configs: List of config items
+            configs: List of ConfigItem objects
         
         Returns:
             Markdown TOC string
@@ -208,7 +209,7 @@ class DocGenerationPipeline:
         toc_lines = []
         
         for config in configs:
-            name = config.get('name', 'unknown')
+            name = config.name
             # Create anchor link (GitHub style)
             anchor = name.lower().replace('_', '-')
             toc_lines.append(f"- [{name}](#{anchor})")

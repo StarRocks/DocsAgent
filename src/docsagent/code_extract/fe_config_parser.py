@@ -2,6 +2,7 @@
 
 import os
 import re
+import json
 
 from pathlib import Path
 from typing import Dict, List, Any
@@ -9,6 +10,7 @@ from loguru import logger
 
 from docsagent import config
 from docsagent.code_extract.code_search import CodeFileSearch
+from docsagent.models import ConfigItem
 
 
 class FEConfigParser:
@@ -16,6 +18,7 @@ class FEConfigParser:
         """Initialize the FE config parser (regex-based, simple and reliable)"""
         self.code_paths = code_paths or self._get_default_code_paths()
         self.supported_extensions = {'.java'}
+        self.meta_path = config.META_CONFIG_DIR + "/fe_config.meta"
 
 
     def _get_default_code_paths(self) -> List[str]:
@@ -67,7 +70,7 @@ class FEConfigParser:
         
         return True
     
-    def _extract_config_items(self, file_path: str) -> List[Dict[str, Any]]:
+    def _extract_config_items(self, file_path: str) -> List[ConfigItem]:
         """Extract configuration items from Java files using regex (simple and reliable)"""
         # Skip non-Java files
         if not file_path.lower().endswith('config.java'):
@@ -88,7 +91,7 @@ class FEConfigParser:
             
         return []
     
-    def _extract_with_regex(self, content: str, file_path: str) -> List[Dict[str, Any]]:
+    def _extract_with_regex(self, content: str, file_path: str) -> List[ConfigItem]:
         """Extract config items using regex pattern matching
         
         Matches patterns like:
@@ -98,7 +101,7 @@ class FEConfigParser:
         @ConfField(mutable = false, comment = "description")
         public static String sys_log_format = "plaintext";
         """
-        items: List[Dict[str, Any]] = []
+        items: List[ConfigItem] = []
         
         # Pattern to match @ConfField annotation followed by static field declaration
         # Captures: 1) annotation params (optional), 2) field type, 3) field name, 4) default value
@@ -130,18 +133,18 @@ class FEConfigParser:
             # Get line number
             line_number = content[:match.start()].count('\n') + 1
             
-            item = {
-                "name": field_name,
-                "type": field_type,
-                "defaultValue": default_value,
-                "comment": params.get("comment", comment),
-                "isMutable": params.get("mutable", "false"),
-                "scope": "FE",
-                "useLocations": [],
-                "documents": "",
-                "file_path": str(file_path),
-                "line_number": line_number,
-            }
+            item = ConfigItem(
+                name=field_name,
+                type=field_type,
+                defaultValue=default_value,
+                comment=params.get("comment", comment),
+                isMutable=params.get("mutable", "false"),
+                scope="FE",
+                useLocations=[],
+                documents="",
+                file_path=str(file_path),
+                line_number=line_number,
+            )
             
             logger.debug(f"Found config item: {field_name} at line {line_number}")
             items.append(item)
@@ -219,15 +222,13 @@ class FEConfigParser:
         
         return ""
 
-    def extract_all_configs(self, sources_files: list[str]) -> List[Dict[str, Any]]:
+    def extract_all_configs(self, sources_files: list[str]) -> List[ConfigItem]:
         """Scan all files in code paths and extract config items"""
         all_config_items = []
         
         for file_path in sources_files:
             try:
                 config_items = self._extract_config_items(file_path)
-                for item in config_items:
-                    item["file_path"] = file_path
                 all_config_items.extend(config_items)
                 
                 if config_items:
@@ -238,12 +239,40 @@ class FEConfigParser:
                 logger.error(f"Error processing file {file_path}: {e}")
 
 
-        search_keywords = [k['name'] for k in all_config_items]
+        exists_metas = self.load_meta_configs()
+
+        search_keywords = [k.name for k in all_config_items]
         serach_results = CodeFileSearch(self.code_paths).search(search_keywords)
         
         for item in all_config_items:
-            if item['name'] in serach_results:
-                item['useLocations'] = serach_results[item['name']]
+            if item.name in serach_results:
+                item.useLocations = serach_results[item.name]
 
         logger.info(f"Total config items found: {len(all_config_items)}")
         return all_config_items
+
+    def save_meta_configs(self, configs: List[ConfigItem]):
+        """Save extracted config items to a JSON file"""
+        try:
+            data = [c.to_dict() for c in configs]
+            with open(self.meta_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+            logger.info(f"Saved {len(configs)} config items to {self.meta_path}")
+        except Exception as e:
+            logger.error(f"Failed to save configs to {self.meta_path}: {e}")
+            
+    def load_meta_configs(self) -> List[ConfigItem]:
+        """Load config items from saved JSON file"""
+        if not os.path.exists(self.meta_path):
+            logger.warning(f"Config meta file does not exist: {self.meta_path}")
+            return []
+        
+        try:
+            with open(self.meta_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            configs = [ConfigItem.from_dict(item) for item in data]
+            logger.info(f"Loaded {len(configs)} config items from {self.meta_path}")
+            return configs
+        except Exception as e:
+            logger.error(f"Failed to load configs from {self.meta_path}: {e}")
+            return []

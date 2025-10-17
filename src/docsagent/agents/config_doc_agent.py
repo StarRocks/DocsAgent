@@ -1,7 +1,7 @@
 """
 ConfigDocAgent: Generate English documentation for configuration items using LangGraph
 """
-from typing import Dict, Any, TypedDict
+from typing import TypedDict
 from loguru import logger
 
 from langgraph.graph import StateGraph, END
@@ -9,15 +9,16 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from docsagent.agents.llm import get_default_chat_model
+from docsagent.models import ConfigItem
 
 
 # Define state schema for the workflow
 class ConfigDocState(TypedDict):
     """State for config documentation generation workflow"""
-    config: Dict[str, Any]       # Input: configuration item metadata
-    prompt: str                  # Prepared prompt for LLM
-    raw_output: str              # Raw LLM output
-    documentation: str           # Final formatted documentation
+    config: ConfigItem              # Input: configuration item
+    prompt: str                     # Prepared prompt for LLM
+    raw_output: str                 # Raw LLM output
+    documentation: str              # Final formatted documentation
 
 
 class ConfigDocAgent:
@@ -64,7 +65,7 @@ class ConfigDocAgent:
         Constructs a detailed prompt including config metadata
         """
         config = state['config']
-        logger.info(f"Preparing prompt for config: {config.get('name', 'unknown')}")
+        logger.info(f"Preparing prompt for config: {config.name}")
         
         # Build user prompt with config information
         prompt = self._build_user_prompt(config)
@@ -157,45 +158,45 @@ class ConfigDocAgent:
         - Introduced in: v3.3.0
         """
     
-    def _build_user_prompt(self, config: Dict[str, Any]) -> str:
+    def _build_user_prompt(self, config: ConfigItem) -> str:
         """Build user prompt with config metadata"""
         prompt = f"""
         Generate documentation for the following StarRocks configuration item:
         
-        **Configuration Name**: {config.get('name', 'N/A')}
-        **Type**: {config.get('type', 'N/A')}
-        **Default Value**: {config.get('defaultValue', 'N/A')}
-        **isMutable**: {config.get('isMutable', 'false')}
-        **UseLocations**: {config.get('useLocations', [])}
-        **Comment**: {config.get('comment', 'N/A')}
+        **Configuration Name**: {config.name}
+        **Type**: {config.type}
+        **Default Value**: {config.defaultValue}
+        **isMutable**: {config.isMutable}
+        **UseLocations**: {config.useLocations}
+        **Comment**: {config.comment}
 
         Please generate comprehensive documentation following the required structure.
         """
         
         return prompt
     
-    def _generate_fallback_doc(self, config: Dict[str, Any]) -> str:
+    def _generate_fallback_doc(self, config: ConfigItem) -> str:
         """Generate fallback documentation when LLM fails"""
         fallback = f"""
-        ##### {config.get('name', 'N/A')}
+        ##### {config.name}
 
-        - Default: {config.get('defaultValue', 'N/A')}
-        - Type: {config.get('type', 'N/A')}
+        - Default: {config.defaultValue}
+        - Type: {config.type}
         - Unit: N/A
-        - Is mutable: {config.get('isMutable', 'false')}
-        - Description: {config.get('commont', 'N/A')}
+        - Is mutable: {config.isMutable}
+        - Description: {config.comment}
         - Introduced in: -
         """
         return fallback
     
-    def _ensure_markdown_structure(self, raw: str, config: Dict[str, Any]) -> str:
+    def _ensure_markdown_structure(self, raw: str, config: ConfigItem) -> str:
         """Ensure the documentation has proper Markdown structure"""
         # If raw output already looks good, return it
         if raw.startswith('##') and len(raw) > 50:
             return raw
         
         # Otherwise, wrap it in a basic structure
-        name = config.get('name', 'Configuration')
+        name = config.name
         
         if not raw.startswith('#'):
             formatted = f"## {name}\n\n{raw}"
@@ -205,33 +206,31 @@ class ConfigDocAgent:
         return formatted.strip()
     
     # Public interface
-    def generate(self, config: Dict[str, Any]) -> str:
+    def generate(self, config: ConfigItem) -> str:
         """
         Generate documentation for a configuration item
         
         Args:
-            config: Configuration item metadata dict with keys:
-                   - name: str
-                   - type: str
-                   - defaultValue: str
-                   - mutable: str
-                   - description: str
+            config: ConfigItem object with metadata
         
         Returns:
             Generated English Markdown documentation as string
             
         Example:
             >>> agent = ConfigDocAgent()
-            >>> config = {
-            ...     "name": "query_timeout",
-            ...     "type": "int",
-            ...     "defaultValue": "300",
-            ...     "mutable": "true",
-            ...     "description": "Query execution timeout in seconds"
-            ... }
+            >>> config = ConfigItem(
+            ...     name="query_timeout",
+            ...     type="int",
+            ...     defaultValue="300",
+            ...     isMutable="true",
+            ...     comment="Query execution timeout in seconds",
+            ...     scope="FE",
+            ...     file_path="/path/to/Config.java",
+            ...     line_number=100
+            ... )
             >>> doc = agent.generate(config)
         """
-        logger.info(f"Generating documentation for: {config.get('name', 'unknown')}")
+        logger.info(f"Generating documentation for: {config.name}")
         
         # Initialize state
         initial_state = ConfigDocState(

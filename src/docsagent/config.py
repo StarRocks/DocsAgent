@@ -52,9 +52,11 @@ LLM_PROVIDER = os.environ.get('LLM_PROVIDER', _config.get('LLM_PROVIDER', 'opena
 LLM_TEMPERATURE = float(os.environ.get('LLM_TEMPERATURE', _config.get('LLM_TEMPERATURE', '0.1')))
 LLM_MAX_TOKENS = int(os.environ.get('LLM_MAX_TOKENS', _config.get('LLM_MAX_TOKENS', '500')))
 
+META_CONFIG_DIR = None
+
 
 def reload_config(config_path: Optional[str] = None):
-    global STARROCKS_HOME, LLM_MODEL, LLM_API_KEY, LLM_URL, LLM_PROVIDER, LLM_TEMPERATURE, LLM_MAX_TOKENS, DOCS_OUTPUT_DIR, _config
+    global STARROCKS_HOME, LLM_MODEL, LLM_API_KEY, LLM_URL, LLM_PROVIDER, LLM_TEMPERATURE, LLM_MAX_TOKENS, DOCS_OUTPUT_DIR, META_CONFIG_DIR, _config
     _config = load_config_from_file(config_path)
     
     STARROCKS_HOME = os.environ.get('STARROCKS_HOME', _config.get('STARROCKS_HOME', ''))
@@ -68,3 +70,4 @@ def reload_config(config_path: Optional[str] = None):
     LLM_TEMPERATURE = float(os.environ.get('LLM_TEMPERATURE', _config.get('LLM_TEMPERATURE', '0.1')))
     LLM_MAX_TOKENS = int(os.environ.get('LLM_MAX_TOKENS', _config.get('LLM_MAX_TOKENS', '500')))
     
+    META_CONFIG_DIR = DOCS_OUTPUT_DIR + "/config/"

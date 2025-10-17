@@ -9,7 +9,7 @@ import tempfile
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from docsagent.agents.pipeline import DocGenerationPipeline
+from docsagent.agents.config_pipeline import ConfigGenerationPipeline
 
 
 def test_pipeline_with_mocks():
@@ -53,7 +53,7 @@ Maximum number of concurrent connections allowed.
     mock_translation_agent.translate.side_effect = mock_translate
     
     # Create pipeline with mocked agents
-    pipeline = DocGenerationPipeline(
+    pipeline = ConfigGenerationPipeline(
         doc_agent=mock_doc_agent,
         translation_agent=mock_translation_agent
     )
