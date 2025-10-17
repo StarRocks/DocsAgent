@@ -141,9 +141,9 @@ class FEConfigParser:
                 isMutable=params.get("mutable", "false"),
                 scope="FE",
                 useLocations=[],
-                documents="",
-                file_path=str(file_path),
-                line_number=line_number,
+                documents={},
+                define= f"{str(file_path)}:{line_number}",
+                catalog= None
             )
             
             logger.debug(f"Found config item: {field_name} at line {line_number}")
@@ -224,7 +224,7 @@ class FEConfigParser:
 
     def extract_all_configs(self, sources_files: list[str]) -> List[ConfigItem]:
         """Scan all files in code paths and extract config items"""
-        all_config_items = []
+        all_config_items:List[ConfigItem] = []
         
         for file_path in sources_files:
             try:
@@ -239,14 +239,25 @@ class FEConfigParser:
                 logger.error(f"Error processing file {file_path}: {e}")
 
 
-        exists_metas = self.load_meta_configs()
+        exists_metas = {}
+        for meta in self.load_meta_configs():
+            exists_metas[meta.name] = meta
 
-        search_keywords = [k.name for k in all_config_items]
-        serach_results = CodeFileSearch(self.code_paths).search(search_keywords)
-        
-        for item in all_config_items:
-            if item.name in serach_results:
-                item.useLocations = serach_results[item.name]
+        for meta in all_config_items:
+            if meta.name in exists_metas:
+                meta.useLocations = exists_metas[meta.name].useLocations
+                meta.documents = exists_metas[meta.name].documents
+                meta.catalog = exists_metas[meta.name].catalog
+
+            if config.FORCE_RESEARCH_CODE:
+                continue
+            
+            search_keywords = [k.name for k in all_config_items]
+            serach_results = CodeFileSearch(self.code_paths).search(search_keywords)
+            
+            for item in all_config_items:
+                if item.name in serach_results:
+                    item.useLocations = serach_results[item.name]
 
         logger.info(f"Total config items found: {len(all_config_items)}")
         return all_config_items

@@ -30,7 +30,7 @@ def set_api_key(api_key: str, model_name: str):
     elif 'google' in model_lower or 'gemini' in model_lower:
         os.environ['GOOGLE_API_KEY'] = api_key
         logger.debug("Set GOOGLE_API_KEY")
-    elif 'moonshot' in model_lower:
+    elif 'moonshot' in model_lower or 'kimi' in model_lower:
         os.environ['OPENAI_API_KEY'] = api_key
         logger.debug("Set OPENAI_API_KEY")
     elif 'qwen' in model_lower:

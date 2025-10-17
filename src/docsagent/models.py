@@ -5,6 +5,30 @@ from typing import List
 import json
 
 
+# Valid configuration item catalogs
+VALID_CATALOGS = [
+    'Logging',
+    'Server',
+    'Metadata and cluster management',
+    'User, role, and privilege',
+    'Query engine',
+    'Loading and unloading',
+    'Storage',
+    'Shared-data',
+    'Other'
+]
+
+
+def is_valid_catalog(catalog: str) -> bool:
+    """Check if the given catalog is valid"""
+    return catalog in VALID_CATALOGS
+
+
+def get_default_catalog() -> str:
+    """Get default catalog for unclassified items"""
+    return 'Other'
+
+
 @dataclass
 class ConfigItem:
     """FE/BE configuration item model - simple data container (POD)"""
@@ -14,11 +38,12 @@ class ConfigItem:
     comment: str
     isMutable: str  # "true" or "false"
     scope: str  # "FE" or "BE"
-    file_path: str
-    line_number: int
+    define: str
     useLocations: List[str] = field(default_factory=list)
-    documents: str = ""
-    catalog: str = "" # Options: []
+    # key: str, lang; value: str, document content
+    documents: dict = field(default_factory=dict)
+    # Options: ['Logging', 'Server', 'Metadata and cluster management', 'User, role, and privilege', 'Query engine', 'Loading and unloading', 'Storage', 'Shared-data', 'Other']
+    catalog: str = None
     
     def to_dict(self) -> dict:
         """Convert to dict for JSON serialization"""

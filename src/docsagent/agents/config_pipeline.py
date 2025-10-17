@@ -145,6 +145,9 @@ class ConfigGenerationPipeline:
         for i, config in enumerate(configs, 1):
             logger.info(f"  Generating doc {i}/{total}: {config.name}")
             
+            if '' in config.documents:
+                continue
+            
             try:
                 doc = self.doc_agent.generate(config)
                 docs.append(doc)

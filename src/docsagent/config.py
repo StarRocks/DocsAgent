@@ -53,10 +53,12 @@ LLM_TEMPERATURE = float(os.environ.get('LLM_TEMPERATURE', _config.get('LLM_TEMPE
 LLM_MAX_TOKENS = int(os.environ.get('LLM_MAX_TOKENS', _config.get('LLM_MAX_TOKENS', '500')))
 
 META_CONFIG_DIR = None
-
+FORCE_RESEARCH_CODE = False
+TARGET_LANGS = ['en', 'zh', 'ja']
 
 def reload_config(config_path: Optional[str] = None):
-    global STARROCKS_HOME, LLM_MODEL, LLM_API_KEY, LLM_URL, LLM_PROVIDER, LLM_TEMPERATURE, LLM_MAX_TOKENS, DOCS_OUTPUT_DIR, META_CONFIG_DIR, _config
+    global STARROCKS_HOME, LLM_MODEL, LLM_API_KEY, LLM_URL, LLM_PROVIDER, LLM_TEMPERATURE, LLM_MAX_TOKENS
+    global DOCS_OUTPUT_DIR, META_CONFIG_DIR, FORCE_RESEARCH_CODE, SRC_LANG, TARGET_LANGS, _config
     _config = load_config_from_file(config_path)
     
     STARROCKS_HOME = os.environ.get('STARROCKS_HOME', _config.get('STARROCKS_HOME', ''))
@@ -71,3 +73,6 @@ def reload_config(config_path: Optional[str] = None):
     LLM_MAX_TOKENS = int(os.environ.get('LLM_MAX_TOKENS', _config.get('LLM_MAX_TOKENS', '500')))
     
     META_CONFIG_DIR = DOCS_OUTPUT_DIR + "/config/"
+    FORCE_RESEARCH_CODE = _config.get('FORCE_RESEARCH_CODE', 'false').lower() == 'true'
+    
+    TARGET_LANGS = _config.get('TARGET_LANGS', 'en,zh,ja').split(',')

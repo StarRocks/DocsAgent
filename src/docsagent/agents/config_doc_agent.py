@@ -9,7 +9,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from docsagent.agents.llm import get_default_chat_model
-from docsagent.models import ConfigItem
+from docsagent.models import ConfigItem, VALID_CATALOGS, is_valid_catalog, get_default_catalog
 
 
 # Define state schema for the workflow
@@ -47,12 +47,14 @@ class ConfigDocAgent:
         # Add nodes
         workflow.add_node("prepare_prompt", self._prepare_prompt)
         workflow.add_node("generate", self._generate)
+        workflow.add_node("classify", self._classify)
         workflow.add_node("format", self._format)
         
-        # Define edges
+        # Define edges: prepare_prompt → generate → classify → format
         workflow.set_entry_point("prepare_prompt")
         workflow.add_edge("prepare_prompt", "generate")
-        workflow.add_edge("generate", "format")
+        workflow.add_edge("generate", "classify")
+        workflow.add_edge("classify", "format")
         workflow.add_edge("format", END)
         
         return workflow.compile()
@@ -204,6 +206,92 @@ class ConfigDocAgent:
             formatted = raw
         
         return formatted.strip()
+    
+    def _build_classify_system_prompt(self) -> str:
+        """Build system prompt for config classification"""
+        catalogs_list = '\n'.join([f"{i+1}. {cat}" for i, cat in enumerate(VALID_CATALOGS)])
+        
+        return f"""
+        You are a StarRocks database configuration expert.
+
+        Your task is to classify configuration items into one of the following {len(VALID_CATALOGS)} categories:
+
+        {catalogs_list}
+
+        Category descriptions:
+        - Logging: Log-related settings (log level, log files, audit logs)
+        - Server: Basic server configuration (ports, threads, memory, network)
+        - Metadata and cluster management: Metadata management, catalog, cluster coordination, FE/BE communication
+        - User, role, and privilege: User authentication, permission control, security
+        - Query engine: Query optimization, execution, scheduling, cache, statistics, optimizer
+        - Loading and unloading: Data import/export, Stream Load, Broker Load, etc.
+        - Storage: Storage engine, disk, compression, Tablet, Rowset, Compaction
+        - Shared-data: Shared-data mode, object storage, cache
+        - Other: Uncategorized items
+
+        Requirements:
+        - Return ONLY the category name (e.g., "Query engine")
+        - Must select one from the above {len(VALID_CATALOGS)} categories
+        - Base your decision primarily on the Description section
+        - If multiple categories apply, choose the most relevant one
+        - If uncertain, choose "Other"
+        """
+    
+    def _build_classify_user_prompt(self, config: ConfigItem, documentation: str) -> str:
+        """Build user prompt for classification with config and documentation"""
+        return f"""
+        Please classify the following configuration item:
+
+        **Configuration Name**: {config.name}
+
+        **Generated Documentation**:
+        {documentation}
+
+        Please return the category this configuration item belongs to.
+        """
+    
+    def _classify(self, state: ConfigDocState) -> ConfigDocState:
+        """
+        Node: Classify the configuration item based on generated documentation
+        
+        Updates config.catalog with the classification result
+        """
+        config = state['config']
+        documentation = state['documentation']
+        
+        # Skip if already classified
+        if config.catalog is not None and is_valid_catalog(config.catalog):
+            logger.info(f"Config {config.name} already classified as: {config.catalog}")
+            return state
+        
+        logger.info(f"Classifying config: {config.name}")
+        
+        try:
+            system_prompt = self._build_classify_system_prompt()
+            user_prompt = self._build_classify_user_prompt(config, documentation)
+            
+            messages = [
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=user_prompt)
+            ]
+            
+            response = self.chat_model.invoke(messages)
+            catalog = response.content.strip()
+            
+            # Validate the returned catalog
+            if not is_valid_catalog(catalog):
+                logger.warning(f"LLM returned invalid catalog '{catalog}', using default")
+                catalog = get_default_catalog()
+            
+            # Update config
+            config.catalog = catalog
+            logger.info(f"Classified {config.name} as: {catalog}")
+            
+        except Exception as e:
+            logger.error(f"Classification failed: {e}, using default catalog")
+            config.catalog = get_default_catalog()
+        
+        return state
     
     # Public interface
     def generate(self, config: ConfigItem) -> str:

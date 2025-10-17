@@ -22,7 +22,7 @@ def test_config_doc_agent():
         isMutable="true",
         comment="Query execution timeout in seconds. If a query runs longer than this value, it will be killed.",
         scope="FE",
-        file_path="/test/Config.java",
+        define="/test/Config.java",
         line_number=100,
         useLocations=[],
         documents=""
