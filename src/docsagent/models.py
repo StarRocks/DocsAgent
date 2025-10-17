@@ -19,6 +19,19 @@ VALID_CATALOGS = [
 ]
 
 
+CATALOGS_LANGS = {
+    'Logging': {'en': 'Logging', 'zh': '日志记录', 'ja': 'ロギング'},
+    'Server': {'en': 'Server', 'zh': '服务器', 'ja': 'サーバー'},
+    'Metadata and cluster management': {'en': 'Metadata and cluster management', 'zh': '元数据和集群管理', 'ja': 'メタデータとクラスタ管理'},
+    'User, role, and privilege': {'en': 'User, role, and privilege', 'zh': '用户、角色和权限', 'ja': 'ユーザー、役割、特権'},
+    'Query engine': {'en': 'Query engine', 'zh': '查询引擎', 'ja': 'クエリエンジン'},
+    'Loading and unloading': {'en': 'Loading and unloading', 'zh': '加载和卸载', 'ja': 'ロードとアンロード'},
+    'Storage': {'en': 'Storage', 'zh': '存储', 'ja': 'ストレージ'},
+    'Shared-data': {'en': 'Shared-data', 'zh': '共享数据', 'ja': '共有データ'},
+    'Other': {'en': 'Other', 'zh': '其他', 'ja': 'その他'}, 
+}
+
+
 def is_valid_catalog(catalog: str) -> bool:
     """Check if the given catalog is valid"""
     return catalog in VALID_CATALOGS

@@ -1,78 +1,157 @@
 import os
 from pathlib import Path
-from typing import Dict, Optional
+from typing import List, Optional
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-def load_config_from_file(config_path: Optional[str] = None) -> Dict[str, str]:
-    if config_path is None:
-        possible_paths = [
-            Path(__file__).parent.parent.parent / "conf" / "agent.conf",
-            Path.cwd() / "conf" / "agent.conf",
-        ]
+class AppConfig(BaseSettings):
+    """
+    Application configuration using Pydantic BaseSettings.
+    
+    Configuration priority (highest to lowest):
+    1. Environment variables
+    2. Configuration file (conf/agent.conf)
+    3. Default values defined here
+    
+    To add a new configuration:
+    1. Add a field with type annotation and default value here
+    2. (Optional) Add the value in conf/agent.conf
+    
+    Example:
+        NEW_FEATURE: bool = False
+        NEW_TIMEOUT: int = 30
+    """
+    
+    # StarRocks source code configuration
+    STARROCKS_HOME: str = ''
+    
+    # Output configuration
+    DOCS_OUTPUT_DIR: str = Field(default_factory=lambda: str(Path(__file__).parent.parent.parent / 'output'))
+    
+    META_DIR: str = Field(default_factory=lambda: str(Path(__file__).parent.parent.parent / 'meta'))
+    
+    # LLM configuration
+    LLM_MODEL: str = 'openai:gpt-3.5-turbo'
+    LLM_API_KEY: str = ''
+    LLM_URL: str = ''
+    LLM_PROVIDER: str = 'openai'
+    LLM_TEMPERATURE: float = 0.1
+    LLM_MAX_TOKENS: int = 500
+    
+    # Processing configuration
+    FORCE_RESEARCH_CODE: bool = False
+    TARGET_LANGS: List[str] = Field(default=['en', 'zh', 'ja'])
+    
+    # Logging configuration
+    LOG_DIR: str = Field(default_factory=lambda: str(Path(__file__).parent.parent.parent / 'logs'))
+    LOG_LEVEL: str = 'INFO'
+    
+    @property
+    def DOCS_MODULE_DIR(self) -> Path:
+        """Computed property for docs module directory"""
+        return Path(__file__).parent / 'docs_module'
+    
+    # Field validators
+    @field_validator('TARGET_LANGS', mode='before')
+    @classmethod
+    def parse_target_langs(cls, v):
+        """Parse TARGET_LANGS from comma-separated string or list"""
+        if isinstance(v, str):
+            return [lang.strip() for lang in v.split(',')]
+        return v
+    
+    @field_validator('FORCE_RESEARCH_CODE', mode='before')
+    @classmethod
+    def parse_bool(cls, v):
+        """Parse boolean from string"""
+        if isinstance(v, str):
+            return v.lower() in ('true', '1', 'yes', 'on')
+        return v
+    
+    model_config = SettingsConfigDict(
+        env_file=None,  # We'll handle config file loading manually
+        env_file_encoding='utf-8',
+        case_sensitive=True,
+        extra='ignore',  # Ignore extra fields in config file
+    )
+    
+    @classmethod
+    def load_from_file(cls, config_path: Optional[str] = None) -> 'AppConfig':
+        """
+        Load configuration from file and environment variables.
         
-        for path in possible_paths:
-            if path.exists():
-                config_path = str(path)
-                break
-    
-    config = {}
-    
-    if config_path and os.path.exists(config_path):
-        with open(config_path, 'r', encoding='utf-8') as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith('#'):
-                    continue
-                
-                if '=' in line:
-                    key, value = line.split('=', 1)
-                    key = key.strip()
-                    value = value.strip()
+        Args:
+            config_path: Path to config file. If None, will search in default locations.
+            
+        Returns:
+            AppConfig instance
+        """
+        if config_path is None:
+            possible_paths = [
+                Path(__file__).parent.parent.parent / "conf" / "agent.conf",
+                Path.cwd() / "conf" / "agent.conf",
+            ]
+            
+            for path in possible_paths:
+                if path.exists():
+                    config_path = str(path)
+                    break
+        
+        # Load config file manually
+        config_dict = {}
+        if config_path and os.path.exists(config_path):
+            with open(config_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith('#'):
+                        continue
                     
-                    if value.startswith('"') and value.endswith('"'):
-                        value = value[1:-1]
-                    elif value.startswith("'") and value.endswith("'"):
-                        value = value[1:-1]
-                    
-                    config[key] = value
-    
-    return config
+                    if '=' in line:
+                        key, value = line.split('=', 1)
+                        key = key.strip()
+                        value = value.strip()
+                        
+                        # Remove quotes
+                        if value.startswith('"') and value.endswith('"'):
+                            value = value[1:-1]
+                        elif value.startswith("'") and value.endswith("'"):
+                            value = value[1:-1]
+                        
+                        config_dict[key] = value
+        
+        # Merge with environment variables (env vars take precedence)
+        # Check each field defined in the model
+        for field_name in cls.model_fields.keys():
+            env_value = os.environ.get(field_name)
+            if env_value is not None:
+                config_dict[field_name] = env_value
+        
+        # Create instance with merged values
+        return cls(**config_dict)
 
 
-_config = load_config_from_file()
-
-STARROCKS_HOME = os.environ.get('STARROCKS_HOME', _config.get('STARROCKS_HOME', ''))
-DOCS_OUTPUT_DIR = os.environ.get('DOCS_OUTPUT_DIR', _config.get('DOCS_OUTPUT_DIR', './docs/output'))
-
-LLM_MODEL = os.environ.get('LLM_MODEL', _config.get('LLM_MODEL', 'openai:gpt-3.5-turbo'))
-LLM_API_KEY = os.environ.get('LLM_API_KEY', _config.get('LLM_API_KEY', ''))
-LLM_URL = os.environ.get('LLM_URL', _config.get('LLM_URL', ''))
-LLM_PROVIDER = os.environ.get('LLM_PROVIDER', _config.get('LLM_PROVIDER', 'openai'))
-
-LLM_TEMPERATURE = float(os.environ.get('LLM_TEMPERATURE', _config.get('LLM_TEMPERATURE', '0.1')))
-LLM_MAX_TOKENS = int(os.environ.get('LLM_MAX_TOKENS', _config.get('LLM_MAX_TOKENS', '500')))
-
-META_CONFIG_DIR = None
-FORCE_RESEARCH_CODE = False
-TARGET_LANGS = ['en', 'zh', 'ja']
+# Global configuration instance
+config = AppConfig.load_from_file()
 
 def reload_config(config_path: Optional[str] = None):
-    global STARROCKS_HOME, LLM_MODEL, LLM_API_KEY, LLM_URL, LLM_PROVIDER, LLM_TEMPERATURE, LLM_MAX_TOKENS
-    global DOCS_OUTPUT_DIR, META_CONFIG_DIR, FORCE_RESEARCH_CODE, SRC_LANG, TARGET_LANGS, _config
-    _config = load_config_from_file(config_path)
+    """
+    Reload configuration from file.
     
-    STARROCKS_HOME = os.environ.get('STARROCKS_HOME', _config.get('STARROCKS_HOME', ''))
-    DOCS_OUTPUT_DIR = os.environ.get('DOCS_OUTPUT_DIR', _config.get('DOCS_OUTPUT_DIR', './docs/output'))
-        
-    LLM_MODEL = os.environ.get('LLM_MODEL', _config.get('LLM_MODEL', 'openai:gpt-3.5-turbo'))
-    LLM_API_KEY = os.environ.get('LLM_API_KEY', _config.get('LLM_API_KEY', ''))
-    LLM_URL = os.environ.get('LLM_URL', _config.get('LLM_URL', ''))
-    LLM_PROVIDER = os.environ.get('LLM_PROVIDER', _config.get('LLM_PROVIDER', 'openai'))
-    
-    LLM_TEMPERATURE = float(os.environ.get('LLM_TEMPERATURE', _config.get('LLM_TEMPERATURE', '0.1')))
-    LLM_MAX_TOKENS = int(os.environ.get('LLM_MAX_TOKENS', _config.get('LLM_MAX_TOKENS', '500')))
-    
-    META_CONFIG_DIR = DOCS_OUTPUT_DIR + "/config/"
-    FORCE_RESEARCH_CODE = _config.get('FORCE_RESEARCH_CODE', 'false').lower() == 'true'
-    
-    TARGET_LANGS = _config.get('TARGET_LANGS', 'en,zh,ja').split(',')
+    Args:
+        config_path: Path to config file. If None, will search in default locations.
+    """
+    global config
+    config = AppConfig.load_from_file(config_path)
+
+
+# Magic method for backward compatibility
+# This allows `from config import LLM_MODEL` to work automatically
+def __getattr__(name: str):
+    """
+    Automatically expose config attributes as module-level variables.
+    This eliminates the need to manually list each config variable.
+    """
+    if hasattr(config, name):
+        return getattr(config, name)
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

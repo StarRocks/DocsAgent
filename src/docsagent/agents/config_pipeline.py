@@ -5,12 +5,15 @@ import re
 from pathlib import Path
 from typing import List
 from loguru import logger
+from collections import defaultdict
+from string import Template
 
 from docsagent.agents.config_doc_agent import ConfigDocAgent
 from docsagent.agents.translation_agent import TranslationAgent
 from docsagent.code_extract.fe_config_parser import FEConfigParser
 from docsagent.models import ConfigItem
-
+from docsagent.models import CATALOGS_LANGS
+from docsagent.config import DOCS_MODULE_DIR
 
 # Separator for combining multiple documents
 DEFAULT_SEPARATOR = "<!-- CONFIG_SEP_{index} -->"
@@ -49,51 +52,78 @@ class ConfigGenerationPipeline:
     
     def run(
         self, 
-        config_source: str, 
         output_dir: str,
+        target_langs: List[str] = None,
         limit: int = None
     ):
         """
-        Run the complete documentation generation pipeline
+        Run the complete documentation generation pipeline with smart translation
+        
+        Translation strategy:
+        - Has Chinese: ZH → EN → Other languages
+        - Has English only: EN → Other languages  
+        - Has neither: Generate EN → Other languages
         
         Args:
             config_source: Path to source code directory or file
             output_dir: Directory to save generated documentation
+            target_langs: Target languages (default: ['en', 'zh', 'ja'])
             limit: Optional limit on number of configs to process (for testing)
         """
+        if target_langs is None:
+            target_langs = ['en', 'zh', 'ja']
+        
         logger.info("=" * 60)
         logger.info("Starting Documentation Generation Pipeline")
+        logger.info(f"Target languages: {', '.join(target_langs)}")
         logger.info("=" * 60)
         
         # Step 1: Extract configs
-        logger.info("\n[Step 1/5] Extracting configuration items...")
-        configs = self.extract_configs(config_source, limit=limit)
+        logger.info("[Step 1/6] Extracting configuration items...")
+        configs = self.extract_configs(limit=limit)
         logger.info(f"✓ Extracted {len(configs)} configuration items")
         
-        # Step 2: Generate English documentation
-        logger.info("\n[Step 2/5] Generating English documentation...")
-        en_docs = self.generate_docs_batch(configs)
-        logger.info(f"✓ Generated {len(en_docs)} English documents")
+        # Step 2: Analyze and group by document status
+        logger.info("[Step 2/6] Analyzing existing documents...")
+        groups = self.analyze_and_group_configs(configs)
+        logger.info(f"  • Has Chinese: {len(groups['has_zh'])} configs")
+        logger.info(f"  • Has English only: {len(groups['has_en_only'])} configs")
+        logger.info(f"  • Has neither: {len(groups['has_neither'])} configs")
         
-        # Step 3: Batch translate (using separator method)
-        logger.info("\n[Step 3/5] Translating documents...")
-        zh_docs = self.translate_docs_batch(en_docs, target_lang='zh', use_separator=True)
-        logger.info(f"✓ Chinese translation completed ({len(zh_docs)} docs)")
+        # Step 3: Generate English for configs without any docs
+        if groups['has_neither']:
+            logger.info(f"[Step 3/6] Generating English for {len(groups['has_neither'])} configs...")
+            self.generate_docs_batch(groups['has_neither'], target_lang='en')
+            # Move to has_en_only group
+            groups['has_en_only'].extend(groups['has_neither'])
+            groups['has_neither'] = []
+            logger.info("✓ English generation completed")
+        else:
+            logger.info("[Step 3/6] All configs have existing documents, skipping generation")
         
-        ja_docs = self.translate_docs_batch(en_docs, target_lang='ja', use_separator=True)
-        logger.info(f"✓ Japanese translation completed ({len(ja_docs)} docs)")
+        # Step 4: Process configs with Chinese (priority: ZH → EN → Others)
+        if groups['has_zh']:
+            logger.info(f"[Step 4/6] Processing configs with Chinese documentation...")
+            self.process_configs_with_zh(groups['has_zh'], target_langs)
+            logger.info("✓ Chinese-based translation completed")
+        else:
+            logger.info("[Step 4/6] No configs with Chinese docs, skipping")
         
-        # Step 4: Organize into Markdown (can now handle incremental updates)
-        logger.info("\n[Step 4/5] Organizing Markdown documents...")
-        en_markdown = self.organize_markdown(en_docs, configs)
-        zh_markdown = self.organize_markdown(zh_docs, configs)
-        ja_markdown = self.organize_markdown(ja_docs, configs)
-        logger.info(f"✓ Organized complete documents")
+        # Step 5: Process configs with English only (EN → Others)
+        if groups['has_en_only']:
+            logger.info(f"[Step 5/6] Processing configs with English documentation...")
+            self.process_configs_with_en(groups['has_en_only'], target_langs)
+            logger.info("✓ English-based translation completed")
+        else:
+            logger.info("[Step 5/6] No configs with English-only docs, skipping")
         
-        # Step 5: Save outputs
-        logger.info("\n[Step 5/5] Saving output files...")
-        self.save_outputs(output_dir, en_markdown, zh_markdown, ja_markdown)
+        # Step 6: Save all languages
+        logger.info("[Step 6/6] Saving output files...")
+        self.save_documents(configs, output_dir, target_langs)
         logger.info(f"✓ Files saved to {output_dir}")
+        
+        # Optional: Persist configs for incremental updates
+        self.save_meta(configs)
         
         logger.info("\n" + "=" * 60)
         logger.info("✅ Pipeline completed successfully!")
@@ -101,7 +131,6 @@ class ConfigGenerationPipeline:
     
     def extract_configs(
         self, 
-        config_source: str,
         limit: int = None
     ) -> List[ConfigItem]:
         """
@@ -114,13 +143,10 @@ class ConfigGenerationPipeline:
         Returns:
             List of ConfigItem objects
         """
-        parser = FEConfigParser(code_paths=[config_source])
-        
-        # Get source files
-        source_files = parser._get_source_code_paths()
+        parser = FEConfigParser()
         
         # Extract all configs
-        all_configs = parser.extract_all_configs(source_files)
+        all_configs = parser.extract_all_configs()
         
         # Apply limit if specified
         if limit and limit > 0:
@@ -129,75 +155,205 @@ class ConfigGenerationPipeline:
         
         return all_configs
     
-    def generate_docs_batch(self, configs: List[ConfigItem]) -> List[str]:
+    def analyze_and_group_configs(
+        self, 
+        configs: List[ConfigItem]
+    ) -> dict:
         """
-        Generate English documentation for all config items
+        Analyze and group configs by document status
+        
+        Groups configs into 3 categories based on existing documents:
+        - has_zh: Configs with Chinese documentation
+        - has_en_only: Configs with English but no Chinese
+        - has_neither: Configs without Chinese or English
         
         Args:
             configs: List of ConfigItem objects
         
         Returns:
-            List of generated English documentation strings
+            Dict with keys: 'has_zh', 'has_en_only', 'has_neither'
         """
-        docs = []
+        groups = {
+            'has_zh': [],
+            'has_en_only': [],
+            'has_neither': []
+        }
+        
+        for config in configs:
+            has_zh = 'zh' in config.documents and config.documents['zh']
+            has_en = 'en' in config.documents and config.documents['en']
+            
+            if has_zh:
+                groups['has_zh'].append(config)
+            elif has_en:
+                groups['has_en_only'].append(config)
+            else:
+                groups['has_neither'].append(config)
+        
+        logger.debug(f"Grouped configs: {len(groups['has_zh'])} with ZH, "
+                    f"{len(groups['has_en_only'])} with EN only, "
+                    f"{len(groups['has_neither'])} with neither")
+        
+        return groups
+    
+    def generate_docs_batch(
+        self, 
+        configs: List[ConfigItem],
+        target_lang: str = 'en'
+    ) -> None:
+        """
+        Generate documentation for config items and update config.documents directly
+        
+        Args:
+            configs: List of ConfigItem objects
+            target_lang: Target language for generation (default: 'en')
+        
+        Note:
+            - Directly updates config.documents[target_lang]
+            - Skips configs that already have documents for target_lang
+            - No return value (modifies configs in place)
+        """
         total = len(configs)
+        generated_count = 0
         
         for i, config in enumerate(configs, 1):
-            logger.info(f"  Generating doc {i}/{total}: {config.name}")
-            
-            if '' in config.documents:
+            # Skip if already has document for this language
+            if target_lang in config.documents and config.documents[target_lang]:
+                logger.debug(f"  Skipping {config.name} (already has {target_lang})")
                 continue
+            
+            logger.info(f"  Generating {target_lang} doc {i}/{total}: {config.name}")
             
             try:
                 doc = self.doc_agent.generate(config)
-                docs.append(doc)
+                config.documents[target_lang] = doc
+                generated_count += 1
             except Exception as e:
                 logger.error(f"  Failed to generate doc for {config.name}: {e}")
                 # Add fallback doc
-                docs.append(f"## {config.name}\n\nDocumentation generation failed.")
+                config.documents[target_lang] = f"## {config.name}\n\nDocumentation generation failed."
         
-        return docs
+        logger.info(f"  Generated {generated_count}/{total} new {target_lang} documents")
     
-    def organize_markdown(
-        self, 
-        docs: List[str], 
-        configs: List[ConfigItem]
-    ) -> str:
+    def translate_and_update_docs(
+        self,
+        configs: List[ConfigItem],
+        source_lang: str,
+        target_lang: str
+    ) -> None:
         """
-        Organize individual documentation into a complete Markdown document
+        Batch translate documents and update config.documents directly
         
         Args:
-            docs: List of documentation strings
-            configs: List of ConfigItem objects (for generating TOC)
+            configs: List of ConfigItem objects
+            source_lang: Source language code (e.g., 'en', 'zh')
+            target_lang: Target language code (e.g., 'ja', 'zh')
         
-        Returns:
-            Complete Markdown document with TOC
+        Note:
+            - Only translates configs missing target_lang documents
+            - Uses separator method for batch translation
+            - Directly updates config.documents[target_lang]
         """
-        # Generate Table of Contents
-        toc = self._generate_toc(configs)
+        # Filter configs that need translation
+        configs_need_translation = [
+            config for config in configs
+            if target_lang not in config.documents 
+            or not config.documents[target_lang]
+        ]
         
-        # Title
-        title = "# StarRocks Configuration Reference\n\n"
+        if not configs_need_translation:
+            logger.info(f"  All configs already have {target_lang}, skipping")
+            return
         
-        # Metadata
-        metadata = f"*Generated documentation for {len(configs)} configuration items*\n\n"
+        logger.info(f"  Translating {len(configs_need_translation)} docs: {source_lang} → {target_lang}")
         
-        # TOC section
-        toc_section = "## Table of Contents\n\n" + toc + "\n\n"
+        # Extract source language documents
+        source_docs = [config.documents[source_lang] for config in configs_need_translation]
         
-        # Separator
-        separator = "---\n\n"
+        # Batch translate
+        translated_docs = self.translate_docs_batch(
+            docs=source_docs,
+            target_lang=target_lang,
+            use_separator=True
+        )
         
-        # Configuration details
-        details_header = "## Configuration Details\n\n"
+        # Update config.documents
+        for config, translated_doc in zip(configs_need_translation, translated_docs):
+            config.documents[target_lang] = translated_doc
         
-        # Join all docs with separators
-        content = "\n\n---\n\n".join(docs)
+        logger.info(f"  ✓ Updated {len(translated_docs)} configs with {target_lang} documents")
+    
+    def process_configs_with_zh(
+        self,
+        configs: List[ConfigItem],
+        target_langs: List[str]
+    ) -> None:
+        """
+        Process configs with Chinese documentation
         
-        # Combine all parts
-        full_doc = title + metadata + toc_section + separator + details_header + content
+        Translation path: ZH → EN → Other languages
         
-        return full_doc
+        Steps:
+        1. Translate ZH → EN (if EN is missing)
+        2. Translate EN → other target languages
+        
+        Args:
+            configs: Configs with Chinese documentation
+            target_langs: Target languages to generate
+        """
+        if not configs:
+            return
+        
+        logger.info(f"[Processing {len(configs)} configs with Chinese docs]")
+        
+        # Step 1: Ensure all configs have English (ZH → EN)
+        if 'en' in target_langs:
+            self.translate_and_update_docs(
+                configs=configs,
+                source_lang='zh',
+                target_lang='en'
+            )
+        
+        # Step 2: Translate EN → other languages
+        for lang in target_langs:
+            if lang in ['zh', 'en']:
+                continue  # Skip Chinese and English
+            
+            self.translate_and_update_docs(
+                configs=configs,
+                source_lang='en',
+                target_lang=lang
+            )
+    
+    def process_configs_with_en(
+        self,
+        configs: List[ConfigItem],
+        target_langs: List[str]
+    ) -> None:
+        """
+        Process configs with English documentation (but no Chinese)
+        
+        Translation path: EN → All other languages
+        
+        Args:
+            configs: Configs with English but no Chinese
+            target_langs: Target languages to generate
+        """
+        if not configs:
+            return
+        
+        logger.info(f"\n[Processing {len(configs)} configs with English docs only]")
+        
+        # Translate EN → all other target languages
+        for lang in target_langs:
+            if lang == 'en':
+                continue  # Already have English
+            
+            self.translate_and_update_docs(
+                configs=configs,
+                source_lang='en',
+                target_lang=lang
+            )
     
     def _generate_toc(self, configs: List[ConfigItem]) -> str:
         """
@@ -234,7 +390,7 @@ class ConfigGenerationPipeline:
     
     def translate_docs_batch(
         self, 
-        en_docs: List[str], 
+        docs: List[str], 
         target_lang: str,
         use_separator: bool = True
     ) -> List[str]:
@@ -249,15 +405,15 @@ class ConfigGenerationPipeline:
         Returns:
             List of translated documentation strings (same order as input)
         """
-        if not en_docs:
+        if not docs:
             return []
         
         if use_separator:
-            logger.info(f"Batch translating {len(en_docs)} docs with separator method")
-            return self._translate_with_separators(en_docs, target_lang)
+            logger.info(f"Batch translating {len(docs)} docs with separator method")
+            return self._translate_with_separators(docs, target_lang)
         else:
-            logger.info(f"Batch translating {len(en_docs)} docs individually")
-            return [self.translation_agent.translate(doc, target_lang) for doc in en_docs]
+            logger.info(f"Batch translating {len(docs)} docs individually")
+            return [self.translation_agent.translate(doc, target_lang) for doc in docs]
     
     def _translate_with_separators(
         self, 
@@ -415,36 +571,54 @@ class ConfigGenerationPipeline:
         
         return cleaned_parts
     
-    def save_outputs(
-        self, 
-        output_dir: str, 
-        en_markdown: str, 
-        zh_markdown: str, 
-        ja_markdown: str
-    ):
+    def save_documents(
+        self,
+        configs: List[ConfigItem],
+        output_dir: str,
+        target_langs: List[str]
+    ) -> None:
         """
-        Save documentation files to output directory
+        Save documentation for all target languages
+        
+        Extracts documents from config.documents and organizes into Markdown files
         
         Args:
-            output_dir: Output directory path
-            en_markdown: English documentation
-            zh_markdown: Chinese documentation
-            ja_markdown: Japanese documentation
+            configs: List of ConfigItem objects with populated documents
+            output_dir: Directory to save output files
+            target_langs: Languages to save
         """
-        output_path = Path(output_dir)
-        output_path.mkdir(parents=True, exist_ok=True)
+
+        target_docs = {k: "" for k in target_langs}
+
+        catalogs = defaultdict(list)
+        for config in configs:
+            catalogs[config.catalog].append(config)
+
+        for lang in target_langs:
+            for catalog in CATALOGS_LANGS:
+                # Process each catalog if needed
+                if catalog not in catalogs:
+                    continue
+                
+                target_docs[lang] += f"### {CATALOGS_LANGS[catalog][lang]}\n\n"
+                for config in sorted(catalogs[catalog]):
+                    mk = config.documents.get(lang, '')
+                    target_docs[lang] += mk + "\n\n"
+
+            # Save file
+            tmpl = Template(open(DOCS_MODULE_DIR / lang / "FE_configuration.md", encoding='utf-8').read())
+            output = tmpl.substitute(outputs=target_docs[lang])
+            
+            output_path = Path(output_dir) / lang / "FE_configuration.md"
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(output, encoding='utf-8')
+            logger.info(f"  ✓ Saved {lang}: {output_path}")
+    
+    def save_meta(
+        self,
+        configs: List[ConfigItem]
+    ) -> None:
+        parser = FEConfigParser()
+        parser.save_meta_configs(configs=configs)
         
-        # Save English
-        en_file = output_path / "config_reference_en.md"
-        en_file.write_text(en_markdown, encoding='utf-8')
-        logger.info(f"  ✓ Saved: {en_file}")
-        
-        # Save Chinese
-        zh_file = output_path / "config_reference_zh.md"
-        zh_file.write_text(zh_markdown, encoding='utf-8')
-        logger.info(f"  ✓ Saved: {zh_file}")
-        
-        # Save Japanese
-        ja_file = output_path / "config_reference_ja.md"
-        ja_file.write_text(ja_markdown, encoding='utf-8')
-        logger.info(f"  ✓ Saved: {ja_file}")
+        logger.info(f"  ✓ Persisted {len(configs)} configs")

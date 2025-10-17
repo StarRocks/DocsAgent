@@ -4,3 +4,7 @@ poetry.lock
 
 __pycache__/
 *.pyc
+
+examples/
+output/
+logs/

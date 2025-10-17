@@ -5,7 +5,7 @@ import re
 import json
 
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, List
 from loguru import logger
 
 from docsagent import config
@@ -16,9 +16,10 @@ from docsagent.models import ConfigItem
 class FEConfigParser:
     def __init__(self, code_paths: List[str] = None):
         """Initialize the FE config parser (regex-based, simple and reliable)"""
-        self.code_paths = code_paths or self._get_default_code_paths()
         self.supported_extensions = {'.java'}
-        self.meta_path = config.META_CONFIG_DIR + "/fe_config.meta"
+        self.meta_path = Path(config.META_DIR) / "fe_config.meta"
+        self.code_paths = code_paths or self._get_source_code_paths()
+        Path(self.meta_path).parent.mkdir(parents=True, exist_ok=True)
 
 
     def _get_default_code_paths(self) -> List[str]:
@@ -32,9 +33,9 @@ class FEConfigParser:
         full_paths = [str(starrocks_dir / path) for path in config_paths]
         return full_paths
     
-    def _get_source_code_paths(self) -> List[str]:
+    def _get_source_code_paths(self) -> List[Path]:
         codes = []
-        for code_path in self.code_paths:
+        for code_path in self._get_default_code_paths():
             if not os.path.exists(code_path):
                 logger.warning(f"Code path does not exist: {code_path}")
                 continue
@@ -50,8 +51,8 @@ class FEConfigParser:
                     if not self._should_process_file(file_path):
                         logger.debug(f"Skipping file: {file_path}")
                         continue
-                    
-                    codes.append(file_path)
+
+                    codes.append(str(file_path))
         return codes
 
     def _should_process_file(self, file_path: Path) -> bool:
@@ -222,8 +223,10 @@ class FEConfigParser:
         
         return ""
 
-    def extract_all_configs(self, sources_files: list[str]) -> List[ConfigItem]:
+    def extract_all_configs(self) -> List[ConfigItem]:
         """Scan all files in code paths and extract config items"""
+        sources_files = self.code_paths
+
         all_config_items:List[ConfigItem] = []
         
         for file_path in sources_files:
@@ -236,7 +239,7 @@ class FEConfigParser:
                 else:
                     logger.debug(f"No config items found in {file_path}")
             except Exception as e:
-                logger.error(f"Error processing file {file_path}: {e}")
+                logger.error(f"Error processing file {file_path}: {e.with_traceback()}")
 
 
         exists_metas = {}
@@ -249,9 +252,7 @@ class FEConfigParser:
                 meta.documents = exists_metas[meta.name].documents
                 meta.catalog = exists_metas[meta.name].catalog
 
-            if config.FORCE_RESEARCH_CODE:
-                continue
-            
+        if config.FORCE_RESEARCH_CODE:
             search_keywords = [k.name for k in all_config_items]
             serach_results = CodeFileSearch(self.code_paths).search(search_keywords)
             
@@ -275,7 +276,7 @@ class FEConfigParser:
     def load_meta_configs(self) -> List[ConfigItem]:
         """Load config items from saved JSON file"""
         if not os.path.exists(self.meta_path):
-            logger.warning(f"Config meta file does not exist: {self.meta_path}")
+            logger.info(f"Config meta file does not exist: {self.meta_path}")
             return []
         
         try:
