@@ -8,19 +8,25 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from docsagent.agents.config_doc_agent import ConfigDocAgent
+from docsagent.models import ConfigItem
 
 
 def test_config_doc_agent():
     """Test the config documentation agent"""
     
     # Sample config item
-    config = {
-        "name": "query_timeout",
-        "type": "int",
-        "defaultValue": "300",
-        "mutable": "true",
-        "description": "Query execution timeout in seconds. If a query runs longer than this value, it will be killed."
-    }
+    config = ConfigItem(
+        name="query_timeout",
+        type="int",
+        defaultValue="300",
+        isMutable="true",
+        comment="Query execution timeout in seconds. If a query runs longer than this value, it will be killed.",
+        scope="FE",
+        file_path="/test/Config.java",
+        line_number=100,
+        useLocations=[],
+        documents=""
+    )
     
     # Initialize agent
     agent = ConfigDocAgent()
@@ -29,7 +35,7 @@ def test_config_doc_agent():
     print("=" * 60)
     print("Testing ConfigDocAgent")
     print("=" * 60)
-    print(f"\nInput config: {config['name']}")
+    print(f"\nInput config: {config.name}")
     print("\nGenerating documentation...\n")
     
     doc = agent.generate(config)
@@ -42,7 +48,7 @@ def test_config_doc_agent():
     
     # Basic validation
     assert len(doc) > 50, "Documentation too short"
-    assert config['name'] in doc, "Config name not in documentation"
+    assert config.name in doc, "Config name not in documentation"
     print("\n✅ Test passed!")
 
 

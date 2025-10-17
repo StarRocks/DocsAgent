@@ -10,7 +10,7 @@ import re
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from docsagent.agents.translation_agent import TranslationAgent
-from docsagent.agents.pipeline import DocGenerationPipeline
+from docsagent.agents.config_pipeline import ConfigGenerationPipeline
 
 
 def test_translation_agent_simple():
@@ -67,7 +67,7 @@ def test_pipeline_separator_methods():
     print("Test 3: Pipeline Separator Methods")
     print("=" * 60)
     
-    pipeline = DocGenerationPipeline()
+    pipeline = ConfigGenerationPipeline()
     
     # Test combine
     docs = [
@@ -120,7 +120,7 @@ def test_pipeline_batch_translation():
     mock_translation_agent.translate.side_effect = mock_translate
     
     # Create pipeline with mock
-    pipeline = DocGenerationPipeline()
+    pipeline = ConfigGenerationPipeline()
     pipeline.translation_agent = mock_translation_agent
     
     # Test batch translation
