@@ -1,4 +1,4 @@
-"""FEConfigPersister: Save multi-language docs and metadata"""
+"""BEConfigPersister: Save multi-language docs and metadata"""
 
 from pathlib import Path
 from typing import List
@@ -11,13 +11,13 @@ from docsagent.domains.models import ConfigItem, CATALOGS_LANGS
 from docsagent import config
 
 
-class FEConfigPersister:
+class BEConfigPersister:
     """Save configuration documentation to files (implements DocPersister protocol)"""
     
     def __init__(self):
         self.docs_module_dir = config.DOCS_MODULE_DIR
-        self.meta_path = Path(config.META_DIR) / "fe_config.meta"
-        logger.debug(f"FEConfigPersister initialized: docs={self.docs_module_dir}, meta={self.meta_path}")
+        self.meta_path = Path(config.META_DIR) / "be_config.meta"
+        logger.debug(f"BEConfigPersister initialized: docs={self.docs_module_dir}, meta={self.meta_path}")
     
     def save(self, items: List[ConfigItem], output_dir: str, target_langs: List[str]) -> None:
         """Save docs and metadata for multiple languages"""
@@ -68,7 +68,7 @@ class FEConfigPersister:
     
     def _apply_template_and_save(self, target_docs: dict, lang: str, output_dir: str) -> None:
         """Apply template ($content substitution) and save to file"""
-        template_path = self.docs_module_dir / lang / "FE_configuration.md"
+        template_path = self.docs_module_dir / lang / "BE_configuration.md"
         
         if not template_path.exists():
             logger.warning(f"Template not found: {template_path}")
@@ -78,7 +78,7 @@ class FEConfigPersister:
                 template = Template(f.read())
             final_content = template.safe_substitute(outputs=target_docs[lang])
         
-        output_path = Path(output_dir) / lang / "FE_configuration.md"
+        output_path = Path(output_dir) / lang / "BE_configuration.md"
         output_path.parent.mkdir(parents=True, exist_ok=True)
         
         with open(output_path, 'w', encoding='utf-8') as f:

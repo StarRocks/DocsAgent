@@ -10,18 +10,16 @@ from docsagent.domains.models import ConfigItem
 from docsagent.domains.fe_config.extractor import FEConfigExtractor
 from docsagent.domains.fe_config.generator import FEConfigDocGenerator
 from docsagent.domains.fe_config.persister import FEConfigPersister
+
+from docsagent.domains.be_config.extractor import BEConfigExtractor
+from docsagent.domains.be_config.persister import BEConfigPersister
+from docsagent.domains.be_config.generator import BEConfigDocGenerator
+
 from docsagent.agents.translation_agent import TranslationAgent
 from docsagent import config
 
 
-def create_config_pipeline() -> DocGenerationPipeline[ConfigItem]:
-    """
-    Create FE config documentation pipeline (all components use global config).
-    
-    Example:
-        >>> pipeline = create_config_pipeline()
-        >>> pipeline.run(output_dir='output', target_langs=['en', 'zh', 'ja'])
-    """
+def create_fe_config_pipeline() -> DocGenerationPipeline[ConfigItem]:
     logger.info("Creating FE Config pipeline...")
     
     logger.debug(f"Config: STARROCKS_HOME={config.STARROCKS_HOME}")
@@ -49,20 +47,40 @@ def create_config_pipeline() -> DocGenerationPipeline[ConfigItem]:
         persister=persister
     )
     
-    logger.success("Pipeline created")
+    logger.info("Pipeline created")
     return pipeline
 
 
 def create_be_config_pipeline():
-    """
-    Create a pipeline for BE configuration documentation (placeholder).
+    logger.info("Creating BE Config pipeline...")
     
-    TODO: Implement when BE config support is added.
+    logger.debug(f"Config: STARROCKS_HOME={config.STARROCKS_HOME}")
+    logger.debug(f"        DOCS_MODULE_DIR={config.DOCS_MODULE_DIR}")
+    logger.debug(f"        META_DIR={config.META_DIR}")
     
-    Returns:
-        DocGenerationPipeline configured for BE config documentation
-    """
-    raise NotImplementedError("BE Config pipeline not yet implemented")
+    logger.debug("Initializing components...")
+    
+    extractor = BEConfigExtractor()
+    logger.debug("✓ BEConfigExtractor")
+    
+    generator = BEConfigDocGenerator()
+    logger.debug("✓ BEConfigDocGenerator")
+    
+    translation_agent = TranslationAgent()
+    logger.debug("✓ TranslationAgent")
+    
+    persister = BEConfigPersister()
+    logger.debug("✓ BEConfigPersister")
+    
+    pipeline = DocGenerationPipeline[ConfigItem](
+        extractor=extractor,
+        doc_generator=generator,
+        translation_agent=translation_agent,
+        persister=persister
+    )
+    
+    logger.success("Pipeline created")
+    return pipeline
 
 
 def create_variable_pipeline():

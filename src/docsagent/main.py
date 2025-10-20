@@ -9,7 +9,7 @@ import argparse
 from pathlib import Path
 from loguru import logger
 
-from docsagent.domains.factory import create_config_pipeline
+from docsagent.domains.factory import create_fe_config_pipeline
 from docsagent import config
 
 
@@ -94,7 +94,7 @@ def generate_docs(args):
     # Create pipeline
     if args.type in ['fe_config', 'be_config']:
         logger.info(f"Creating {args.type} documentation pipeline...")
-        pipeline = create_config_pipeline()
+        pipeline = create_fe_config_pipeline()
     else:
         logger.error(f"Unsupported type: {args.type}")
         sys.exit(1)

@@ -4,22 +4,55 @@
 
 ## 2. Directory Structure
 ```
-docs-agent/
-├─ meta/               # JSON Meta
-|  ├─ version/
-│  ├─ variable/
-│  ├─ fe_config/
-│  ├─ be_config/
-│  ├─ scalar_func/
-│  ├─ agg_func/
-│  └─ window_func/
-├─ src/
-|  ├─ code_extract/    # code -> meta
-|  ├─ docs_extract/    # docs -> meta
-|  ├─ agents/
-|  ├─ config/
-|  └─ tools/
-└─ tests/
+./
+├── conf                                # Configuration files
+│   ├── agent.conf                      # default configuration
+│   └── example.conf
+├── meta                                # Output Metadata files
+│   ├── agg_func
+│   ├── fe_config.meta
+│   ├── scalar_func
+│   ├── version
+│   └── window_func
+├── output                              # Generated documentation files
+│   ├── en
+│   ├── ja
+│   └── zh
+├── pyproject.toml                      # Poetry configuration file
+├── src                                 # Source code directory
+│   └── docsagent
+│       ├── agents                      # Agents implementations
+│       │   ├── config_doc_agent.py
+│       │   ├── llm.py
+│       │   └── translation_agent.py
+│       ├── config.py
+│       ├── core                        # Core components, pipeline framework
+│       │   ├── __init__.py
+│       │   ├── pipeline.py
+│       │   └── protocols.py
+│       ├── docs_module                 # Documentation modules
+│       │   ├── en
+│       │   ├── ja
+│       │   └── zh
+│       ├── domains                      # Domain-specific modules  
+│       │   ├── be_config                # BE Config
+│       │   │   ├── extractor.py
+│       │   │   ├── generator.py
+│       │   │   ├── __init__.py
+│       │   │   └── persister.py
+│       │   ├── factory.py
+│       │   ├── fe_config               # FE Config
+│       │   │   ├── extractor.py
+│       │   │   ├── generator.py
+│       │   │   ├── __init__.py
+│       │   │   └── persister.py
+│       │   ├── __init__.py
+│       │   └── models.py
+│       ├── main.py
+│       └── tools                       # Utility tools
+│           ├── code_search.py
+│           └── variables_parser.py
+└── tests
 ```
 
 ## 3. Development Environment

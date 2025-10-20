@@ -19,7 +19,8 @@ dependencies = [
     "langchain[anthropic] (>=0.3.27,<0.4.0)",
     "langchain-openai (>=0.3.35,<0.4.0)",
     "httpx[socks] (>=0.28.1,<0.29.0)",
-    "pydantic-settings (>=2.11.0,<3.0.0)"
+    "pydantic-settings (>=2.11.0,<3.0.0)",
+    "socksio (>=1.0.0,<2.0.0)"
 ]
 
 [tool.poetry]

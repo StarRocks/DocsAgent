@@ -36,11 +36,25 @@ class CodeFileSearch:
                 logger.warning(f"Code path does not exist: {code_path}")
                 continue
 
+            path_obj = Path(code_path)
+            
+            # Handle file path directly
+            if path_obj.is_file():
+                if path_obj.suffix in ['.java', '.cpp', '.h', '.hpp', '.cc']:
+                    file_count += 1
+                    found_keywords = self._search_file(path_obj, keyworks, combined_pattern)
+                    for keyword in found_keywords:
+                        results[keyword].append(str(path_obj))
+                else:
+                    logger.debug(f"Skipping unsupported file type: {code_path}")
+                continue
+            
+            # Handle directory path
             logger.debug(f"Searching in code path: {code_path}")
             for root, dirs, files in os.walk(code_path):
                 for file in files:
                     file_path = Path(root) / file
-                    if file_path.suffix not in ['.java', '.cpp', '.h', '.hpp']:
+                    if file_path.suffix not in ['.java', '.cpp', '.h', '.hpp', '.cc']:
                         continue
                     
                     file_count += 1

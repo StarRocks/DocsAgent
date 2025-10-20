@@ -138,7 +138,6 @@ class ItemExtractor(Protocol[T]):
     
     def extract(
         self,
-        source: str,
         limit: Optional[int] = None,
         **kwargs
     ) -> List[T]:
@@ -146,12 +145,6 @@ class ItemExtractor(Protocol[T]):
         Extract items from the specified source.
         
         Args:
-            source: Source location (file path, directory, URL, etc.)
-                    Interpretation depends on the specific extractor:
-                    - FEConfigExtractor: Path to Java source directory
-                    - FunctionExtractor: Path to Python/Java source files
-                    - VariableExtractor: Path to config files
-            
             limit: Optional limit on number of items to extract
                    Useful for:
                    - Testing with a small sample

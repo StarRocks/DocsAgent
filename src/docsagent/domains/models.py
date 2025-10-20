@@ -16,9 +16,9 @@ VALID_CATALOGS = [
     'Loading and unloading',
     'Storage',
     'Shared-data',
+    'Data Lake',
     'Other'
 ]
-
 
 CATALOGS_LANGS = {
     'Logging': {'en': 'Logging', 'zh': '日志记录', 'ja': 'ロギング'},
@@ -29,6 +29,7 @@ CATALOGS_LANGS = {
     'Loading and unloading': {'en': 'Loading and unloading', 'zh': '加载和卸载', 'ja': 'ロードとアンロード'},
     'Storage': {'en': 'Storage', 'zh': '存储', 'ja': 'ストレージ'},
     'Shared-data': {'en': 'Shared-data', 'zh': '共享数据', 'ja': '共有データ'},
+    'Data Lake': {'en': 'Data Lake', 'zh': '数据湖', 'ja': 'データレイク'},
     'Other': {'en': 'Other', 'zh': '其他', 'ja': 'その他'}, 
 }
 
