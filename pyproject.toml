@@ -20,7 +20,8 @@ dependencies = [
     "langchain-openai (>=0.3.35,<0.4.0)",
     "httpx[socks] (>=0.28.1,<0.29.0)",
     "pydantic-settings (>=2.11.0,<3.0.0)",
-    "socksio (>=1.0.0,<2.0.0)"
+    "socksio (>=1.0.0,<2.0.0)",
+    "hyperscan (>=0.7.26,<0.8.0)"
 ]
 
 [tool.poetry]

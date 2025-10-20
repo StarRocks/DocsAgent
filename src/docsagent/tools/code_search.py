@@ -3,18 +3,20 @@
 import os
 import re
 from collections import defaultdict
-
 from pathlib import Path
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Tuple
 from loguru import logger
+
+import hyperscan
 
 
 class CodeFileSearch:
     def __init__(self, code_paths: List[str] = None):
         """Initialize the code file searcher"""
         self.code_paths = code_paths
-        # Pre-compile regex pattern for better performance
-        self._compiled_patterns = {}
+        # Hyperscan database
+        self._hs_database = None
+        self._hs_keyword_map = {}  # Map pattern ID to keyword
 
     def search(self, keyworks: List[str]) -> Dict[str, List[str]]:
         """Search for keywords in the code paths"""
@@ -22,11 +24,8 @@ class CodeFileSearch:
             logger.error("No code paths provided for searching.")
             return {}
 
-        # Pre-compile all keyword patterns
-        self._compile_patterns(keyworks)
-        
-        # Build combined pattern for fast initial filtering
-        combined_pattern = self._build_combined_pattern(keyworks)
+        # Compile Hyperscan patterns
+        self._compile_hyperscan_patterns(keyworks)
 
         results = defaultdict(list)
         file_count = 0
@@ -42,9 +41,10 @@ class CodeFileSearch:
             if path_obj.is_file():
                 if path_obj.suffix in ['.java', '.cpp', '.h', '.hpp', '.cc']:
                     file_count += 1
-                    found_keywords = self._search_file(path_obj, keyworks, combined_pattern)
-                    for keyword in found_keywords:
-                        results[keyword].append(str(path_obj))
+                    keyword_line_map = self._search_file(path_obj, keyworks)
+                    for keyword, line_numbers in keyword_line_map.items():
+                        for line_num in line_numbers:
+                            results[keyword].append(f"{str(path_obj)}:{line_num}")
                 else:
                     logger.debug(f"Skipping unsupported file type: {code_path}")
                 continue
@@ -58,54 +58,106 @@ class CodeFileSearch:
                         continue
                     
                     file_count += 1
-                    found_keywords = self._search_file(file_path, keyworks, combined_pattern)
+                    keyword_line_map = self._search_file(file_path, keyworks)
                     
-                    # Build result dict: {keyword: [file_paths]}
-                    for keyword in found_keywords:
-                        results[keyword].append(str(file_path))
+                    # Build result dict: {keyword: [file_path:line_number]}
+                    for keyword, line_numbers in keyword_line_map.items():
+                        for line_num in line_numbers:
+                            results[keyword].append(f"{str(file_path)}:{line_num}")
         
         logger.info(f"Searched {file_count} files, found {len(results)} keywords")
         return dict(results)
     
-    def _compile_patterns(self, keywords: List[str]):
-        """Pre-compile regex patterns for keywords"""
-        if self._compiled_patterns:
+    def _compile_hyperscan_patterns(self, keywords: List[str]):
+        """Compile patterns using Hyperscan for high-performance matching"""
+        if self._hs_database is not None:
             return  # Already compiled
         
-        for keyword in keywords:
-            try:
-                pattern = r'\b' + re.escape(keyword) + r'\b'
-                self._compiled_patterns[keyword] = re.compile(pattern)
-            except re.error as e:
-                logger.warning(f"Failed to compile pattern for keyword '{keyword}': {e}")
+        patterns = []
+        flags = []
+        ids = []
+        
+        for idx, keyword in enumerate(keywords):
+            # Create word boundary pattern
+            pattern = r'\b' + re.escape(keyword) + r'\b'
+            patterns.append(pattern.encode('utf-8'))
+            # 0 for default flags, can add hyperscan.HS_FLAG_CASELESS for case-insensitive
+            flags.append(0)
+            ids.append(idx)
+            self._hs_keyword_map[idx] = keyword
+        
+        try:
+            # Compile all patterns into a single database
+            self._hs_database = hyperscan.Database()
+            self._hs_database.compile(
+                expressions=patterns,
+                ids=ids,
+                elements=len(patterns),
+                flags=flags
+            )
+            logger.info(f"Compiled {len(patterns)} patterns with Hyperscan")
+        except Exception as e:
+            logger.error(f"Failed to compile Hyperscan database: {e}")
+            self._hs_database = None
     
-    def _build_combined_pattern(self, keywords: List[str]) -> re.Pattern:
-        """Build a combined regex pattern for fast initial filtering"""
-        # Escape all keywords and join with OR
-        escaped_keywords = [re.escape(kw) for kw in keywords]
-        combined = r'\b(' + '|'.join(escaped_keywords) + r')\b'
-        return re.compile(combined)
-    
-    def _search_file(self, file_path: Path, keywords: List[str], combined_pattern: re.Pattern) -> Set[str]:
-        """Search for keywords in a single file using optimized approach"""
+    def _search_file(self, file_path: Path, keywords: List[str]) -> Dict[str, List[int]]:
+        """Search for keywords in a single file
+        
+        Returns:
+            Dict mapping keyword to list of line numbers where it appears
+        """
         try:
             with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                 content = f.read()
             
-            # Fast initial check: if no keywords found, skip detailed search
-            if not combined_pattern.search(content):
-                return set()
-            
-            # Detailed search: find which specific keywords match
-            found_keywords = set()
-            for keyword in keywords:
-                pattern = self._compiled_patterns.get(keyword)
-                if pattern and pattern.search(content):
-                    found_keywords.add(keyword)
-                    logger.debug(f"Found keyword '{keyword}' in {file_path}")
-            
-            return found_keywords
+            return self._search_with_hyperscan(content, file_path)
             
         except Exception as e:
             logger.error(f"Error reading file {file_path}: {e}")
-            return set()
+            return {}
+    
+    def _search_with_hyperscan(self, content: str, file_path: Path) -> Dict[str, List[int]]:
+        """Search using Hyperscan (high performance)
+        
+        Returns:
+            Dict mapping keyword to list of line numbers where it appears
+        """
+        # Use defaultdict to collect all line numbers for each keyword
+        keyword_lines = defaultdict(list)
+        
+        # Build line offset mapping for line number calculation
+        content_bytes = content.encode('utf-8')
+        line_starts = [0]  # Line 1 starts at byte 0
+        for i, byte in enumerate(content_bytes):
+            if byte == ord('\n'):
+                line_starts.append(i + 1)
+        
+        def get_line_number(offset: int) -> int:
+            """Convert byte offset to line number (1-indexed)"""
+            # Binary search would be more efficient for large files
+            for line_num in range(len(line_starts) - 1, -1, -1):
+                if offset >= line_starts[line_num]:
+                    return line_num + 1  # Convert to 1-indexed
+            return 1
+        
+        def on_match(id, from_offset, to_offset, flags, context):
+            """Callback function for Hyperscan matches
+            
+            Note: In block mode, from_offset is always 0 (start of scan),
+                  to_offset is the position immediately after the match
+            """
+            keyword = self._hs_keyword_map.get(id)
+            if keyword:
+                # Use to_offset - 1 to get the last character of the match
+                line_num = get_line_number(to_offset - 1)
+                keyword_lines[keyword].append(line_num)
+                logger.debug(f"Found keyword '{keyword}' in {file_path}:{line_num}")
+            return None  # Continue scanning
+        
+        try:
+            # Scan content with all patterns at once
+            self._hs_database.scan(content_bytes, match_event_handler=on_match)
+        except Exception as e:
+            logger.error(f"Hyperscan error in {file_path}: {e}")
+        
+        return dict(keyword_lines)
