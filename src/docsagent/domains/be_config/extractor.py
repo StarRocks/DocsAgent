@@ -1,4 +1,4 @@
-"""FEConfigExtractor: Extract config items from Java source code"""
+"""BEConfigExtractor: Extract config items from C++ source code"""
 
 import os
 import re
@@ -12,30 +12,30 @@ from docsagent.domains.models import ConfigItem
 from docsagent.tools.code_search import CodeFileSearch
 
 
-class FEConfigExtractor:
-    """Extract config items from StarRocks FE source (implements ItemExtractor protocol)"""
+class BEConfigExtractor:
+    """Extract config items from StarRocks BE source (implements ItemExtractor protocol)"""
     
     def __init__(self, code_paths: List[str] = None):
         """Initialize the config extractor (regex-based, simple and reliable)"""
-        self.supported_extensions = {'.java'}
-        self.meta_path = Path(config.META_DIR) / "fe_config.meta"
+        self.supported_extensions = {'.h', '.hpp', '.cc', '.cpp'}
+        self.meta_path = Path(config.META_DIR) / "be_config.meta"
         self.code_paths = code_paths or self._get_source_code_paths()
         Path(self.meta_path).parent.mkdir(parents=True, exist_ok=True)
-        logger.debug(f"FEConfigExtractor initialized: {len(self.code_paths)} code files")
+        logger.debug(f"BEConfigExtractor initialized: {len(self.code_paths)} code files")
     
     def _get_default_code_paths(self) -> List[str]:
         """Get default code scanning paths - focus on config-related directories"""
         starrocks_dir = Path(config.STARROCKS_HOME)
         # Focus on config-related paths
         config_paths = [
-            "fe/fe-core/src/main/java/com/starrocks/",
+            "be/src/",
         ]
         
         full_paths = [str(starrocks_dir / path) for path in config_paths]
         return full_paths
     
     def _get_source_code_paths(self) -> List[Path]:
-        """Scan and collect all Java source files from default paths"""
+        """Scan and collect all C++ source files from default paths"""
         codes = []
         for code_path in self._get_default_code_paths():
             if not os.path.exists(code_path):
@@ -68,23 +68,23 @@ class FEConfigExtractor:
             return False
         # Common test file naming
         name_lower = file_path.name.lower()
-        if name_lower.endswith('test.java') or name_lower.startswith('test'):
+        if name_lower.endswith('test') or name_lower.startswith('test'):
             return False
         
         return True
     
     def _extract_config_items(self, file_path: str) -> List[ConfigItem]:
-        """Extract configuration items from Java files using regex (simple and reliable)"""
-        # Skip non-Java files
-        if not file_path.lower().endswith('config.java'):
+        """Extract configuration items from C++ files using regex (simple and reliable)"""
+        # Skip non-C++ files
+        if 'config' not in file_path.lower():
             return []
 
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
                 
-            # Quick check if file contains @ConfField annotations
-            if "@ConfField" not in content:
+            # Quick check if file contains CONF_ macros
+            if "CONF_" not in content:
                 return []
 
             logger.debug(f"Processing file: {file_path}")
@@ -98,37 +98,68 @@ class FEConfigExtractor:
         """Extract config items using regex pattern matching
         
         Matches patterns like:
-        @ConfField
-        public static int log_roll_size_mb = 1024;
+        CONF_Int32(be_port, "9060");
+        CONF_mString(sys_log_level, "INFO");
+        CONF_Bool(enable_https, "false");
+        CONF_String_enum(brpc_connection_type, "single", "single,pooled,short");
+        CONF_Alias(be_http_port, webserver_port);
         
-        @ConfField(mutable = false, comment = "description")
-        public static String sys_log_format = "plaintext";
+        Where CONF_Type or CONF_mType (mutable) followed by (name, "value");
         """
         items: List[ConfigItem] = []
         
-        # Pattern to match @ConfField annotation followed by static field declaration
-        # Captures: 1) annotation params (optional), 2) field type, 3) field name, 4) default value
-        pattern = re.compile(
-            r'@ConfField\s*(?:\(([^)]*)\))?\s*'  # @ConfField with optional parameters
-            r'(?:@\w+(?:\([^)]*\))?\s*)*'  # Skip other annotations like @Deprecated
-            r'(?:public|private|protected)?\s*'  # Optional access modifier
-            r'static\s+'  # Must have static
-            r'(?:final\s+)?'  # Optional final
-            r'([\w\[\]<>,\s]+?)\s+'  # Type (including generics, arrays)
-            r'(\w+)\s*'  # Field name
-            r'=\s*'  # Assignment
-            r'([^;]+);',  # Default value until semicolon
-            re.MULTILINE | re.DOTALL
+        # Pattern 1: Standard CONF_* macros with quoted default value
+        # Captures: 1) mutable flag (m), 2) field type, 3) field name, 4) default value
+        standard_pattern = re.compile(
+            r'CONF_(m)?'  # CONF_ with optional 'm' for mutable
+            r'(\w+)\s*'  # Type (Int32, String, Bool, etc.)
+            r'\(\s*'  # Opening parenthesis
+            r'(\w+)\s*,\s*'  # Field name followed by comma
+            r'"([^"]*)"\s*'  # Default value in quotes
+            r'(?:,\s*"[^"]*")?\s*'  # Optional third parameter (for String_enum)
+            r'\)',  # Closing parenthesis
+            re.MULTILINE
         )
         
-        for match in pattern.finditer(content):
-            annotation_params_str = match.group(1) or ""
+        # Pattern 2: CONF_Alias(new_name, old_name) - no quotes
+        alias_pattern = re.compile(
+            r'CONF_Alias\s*'  # CONF_Alias
+            r'\(\s*'  # Opening parenthesis
+            r'(\w+)\s*,\s*'  # New name (alias)
+            r'(\w+)\s*'  # Old name (target)
+            r'\)',  # Closing parenthesis
+            re.MULTILINE
+        )
+        
+        # Type mapping for better readability
+        type_mapping = {
+            'Int16': 'short',
+            'Int32': 'int',
+            'Int64': 'long',
+            'Bool': 'boolean',
+            'String': 'string',
+            'Strings': 'string[]',
+            'String_enum': 'string',  # enum string type
+            'Double': 'double',
+        }
+        
+        name_alias: map = {}
+        # Extract CONF_Alias configs
+        for match in alias_pattern.finditer(content):
+            alias_name = match.group(1).strip()
+            target_name = match.group(2).strip()
+            
+            line_number = content[:match.start()].count('\n') + 1
+            name_alias[target_name] = alias_name
+            logger.debug(f"Found alias config: {alias_name} -> {target_name} at line {line_number}")
+                    
+        
+        # Extract standard CONF_* configs
+        for match in standard_pattern.finditer(content):
+            is_mutable = match.group(1) is not None  # Check if 'm' prefix exists
             field_type = match.group(2).strip()
             field_name = match.group(3).strip()
             default_value = match.group(4).strip()
-            
-            # Parse annotation parameters
-            params = self._parse_annotation_params(annotation_params_str)
             
             # Extract comment before this match
             comment = self._extract_comment_before_position(content, match.start())
@@ -136,56 +167,50 @@ class FEConfigExtractor:
             # Get line number
             line_number = content[:match.start()].count('\n') + 1
             
+            readable_type = type_mapping.get(field_type, field_type)
+            
+            if field_type == 'string_enum':
+                readable_type = 'string'  # Adjust type for enum strings
+                enums = match.group(5).strip()  # Enum options (not stored here)
+                default_value = default_value  + f' (options: {enums})'
+                 
+            alias_name = name_alias.get(field_name, None)
+            if alias_name:
+                field_name = alias_name
+                logger.debug(f"Found config item: {field_name}, alias: {alias_name} at line {line_number}")
+            else:
+                logger.debug(f"Found config item: {field_name} at line {line_number}")
+
             item = ConfigItem(
                 name=field_name,
-                type=field_type,
+                type=readable_type,
                 defaultValue=default_value,
-                comment=params.get("comment", comment),
-                isMutable=params.get("mutable", "false"),
-                scope="FE",
+                comment=comment,
+                isMutable="true" if is_mutable else "false",
+                scope="BE",
                 useLocations=[],
                 documents={},
                 define=f"{str(file_path)}:{line_number}",
                 catalog=None
             )
             
-            logger.debug(f"Found config item: {field_name} at line {line_number}")
             items.append(item)
         
         return items
     
-    def _parse_annotation_params(self, params_str: str) -> Dict[str, str]:
-        """Parse annotation parameters like 'mutable = false, comment = "text"'
-        
-        Returns dict with parameter names and values (strings with quotes removed)
-        """
-        params = {}
-        if not params_str:
-            return params
-        
-        # Pattern to match key=value pairs
-        # Handles: key = "value", key = 'value', key = true, key = false, key = 123
-        param_pattern = re.compile(r'(\w+)\s*=\s*(["\']?)([^,]*?)\2(?:,|$)')
-        
-        for match in param_pattern.finditer(params_str):
-            key = match.group(1).strip()
-            value = match.group(3).strip()
-            params[key] = value
-        
-        return params
     
     def _extract_comment_before_position(self, content: str, position: int) -> str:
-        """Extract comment (JavaDoc, block comment, or line comment) before given position
+        """Extract comment (C++Doc, block comment, or line comment) before given position
         
         Looks backwards from position to find:
-        - /** ... */ (JavaDoc)
+        - /** ... */ (C++Doc)
         - /* ... */ (block comment)
         - // ... (line comment)
         """
         # Get text before the position
         before_text = content[:position]
         
-        # Look for JavaDoc comment /** ... */
+        # Look for C++Doc comment /** ... */
         javadoc_pattern = re.compile(r'/\*\*\s*(.*?)\s*\*/', re.DOTALL)
         javadoc_matches = list(javadoc_pattern.finditer(before_text))
         if javadoc_matches:
@@ -194,7 +219,7 @@ class FEConfigExtractor:
             gap = before_text[last_match.end():].strip()
             if len(gap) < 100 or not gap:
                 comment_text = last_match.group(1)
-                # Clean up JavaDoc formatting (* at start of lines)
+                # Clean up C++Doc formatting (* at start of lines)
                 lines = comment_text.split('\n')
                 cleaned_lines = [line.lstrip('* ').strip() for line in lines]
                 return ' '.join(line for line in cleaned_lines if line)
@@ -288,7 +313,7 @@ class FEConfigExtractor:
         logger.info("Starting extraction...")
         
         configs = self._extract_all_configs(limit)
-
+        
         if limit is not None:
             configs = configs[:limit]
         

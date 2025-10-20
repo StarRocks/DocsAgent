@@ -227,6 +227,7 @@ class ConfigDocAgent:
         - Loading and unloading: Data import/export, Stream Load, Broker Load, etc.
         - Storage: Storage engine, disk, compression, Tablet, Rowset, Compaction
         - Shared-data: Shared-data mode, object storage, cache
+        - Data Lake: Data lake related configurations
         - Other: Uncategorized items
 
         Requirements:
@@ -282,7 +283,7 @@ class ConfigDocAgent:
             if not is_valid_catalog(catalog):
                 logger.warning(f"LLM returned invalid catalog '{catalog}', using default")
                 catalog = get_default_catalog()
-            
+
             # Update config
             config.catalog = catalog
             logger.info(f"Classified {config.name} as: {catalog}")

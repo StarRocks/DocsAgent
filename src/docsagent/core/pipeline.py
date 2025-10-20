@@ -107,7 +107,6 @@ class DocGenerationPipeline(Generic[T]):
     
     def run(
         self,
-        source: str,
         output_dir: str,
         target_langs: List[str] = None,
         generate_missing: bool = True,
@@ -126,7 +125,6 @@ class DocGenerationPipeline(Generic[T]):
         6. Save all documentation files
         
         Args:
-            source: Source location (file path, directory, etc.)
             output_dir: Output directory for generated docs
             target_langs: Target languages (default: ['en', 'zh'])
             generate_missing: Whether to generate docs for items without any
@@ -147,7 +145,7 @@ class DocGenerationPipeline(Generic[T]):
         
         # Step 1: Extract items
         logger.info(f"[Step 1/6] Extracting {self.item_type_name}s...")
-        items = self.extractor.extract(source, limit, **kwargs)
+        items = self.extractor.extract(limit, **kwargs)
         logger.info(f"✓ Extracted {len(items)} {self.item_type_name}s")
         
         # Step 2: Analyze and group
