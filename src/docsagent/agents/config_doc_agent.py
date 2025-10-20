@@ -9,7 +9,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from docsagent.agents.llm import get_default_chat_model
-from docsagent.models import ConfigItem, VALID_CATALOGS, is_valid_catalog, get_default_catalog
+from docsagent.domains.models import ConfigItem, VALID_CATALOGS, is_valid_catalog, get_default_catalog
 
 
 # Define state schema for the workflow

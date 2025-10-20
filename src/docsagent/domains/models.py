@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
+"""Domain models for DocsAgent"""
 
 from dataclasses import dataclass, field, asdict
-from typing import List
+from typing import List, Dict, Any
 import json
 
 
@@ -44,7 +45,25 @@ def get_default_catalog() -> str:
 
 @dataclass
 class ConfigItem:
-    """FE/BE configuration item model - simple data container (POD)"""
+    """
+    FE/BE configuration item model.
+    
+    Implements the DocumentableItem protocol for use with the generic
+    documentation generation pipeline.
+    
+    Attributes:
+        name: Configuration parameter name (unique identifier)
+        type: Data type (e.g., 'int', 'string', 'boolean')
+        defaultValue: Default value for the parameter
+        comment: Source code comment/description
+        isMutable: Whether the config can be changed at runtime ("true"/"false")
+        scope: Where the config applies ("FE" for frontend, "BE" for backend)
+        define: Definition location in source code
+        useLocations: List of places where the config is used
+        documents: Multi-language documentation (lang code -> content)
+        catalog: Documentation category (e.g., 'Logging', 'Server', etc.)
+    """
+    # Required fields (from source code parsing)
     name: str
     type: str
     defaultValue: str
@@ -52,21 +71,41 @@ class ConfigItem:
     isMutable: str  # "true" or "false"
     scope: str  # "FE" or "BE"
     define: str
-    useLocations: List[str] = field(default_factory=list)
-    # key: str, lang; value: str, document content
-    documents: dict = field(default_factory=dict)
-    # Options: ['Logging', 'Server', 'Metadata and cluster management', 'User, role, and privilege', 'Query engine', 'Loading and unloading', 'Storage', 'Shared-data', 'Other']
-    catalog: str = None
     
-    def to_dict(self) -> dict:
-        """Convert to dict for JSON serialization"""
+    # Optional fields with defaults
+    useLocations: List[str] = field(default_factory=list)
+    documents: Dict[str, str] = field(default_factory=dict)  # Multi-language documentation
+    catalog: str = None  # Options: VALID_CATALOGS
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Convert to dict for JSON serialization.
+        
+        Returns:
+            Dict[str, Any]: Dictionary representation of the config item
+        """
         return asdict(self)
     
     @classmethod
-    def from_dict(cls, data: dict) -> "ConfigItem":
-        """Create instance from dict"""
+    def from_dict(cls, data: Dict[str, Any]) -> "ConfigItem":
+        """
+        Create instance from dict.
+        
+        Args:
+            data: Dictionary representation of a config item
+        
+        Returns:
+            ConfigItem: Reconstructed config item instance
+        """
         return cls(**data)
     
+    # ============ Additional Methods ============
+    
     def to_json(self) -> str:
-        """Convert to JSON string"""
+        """
+        Convert to JSON string.
+        
+        Returns:
+            str: JSON representation with UTF-8 encoding
+        """
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=2)

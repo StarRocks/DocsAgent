@@ -1,27 +1,29 @@
-#!/usr/bin/env python3
+"""FEConfigExtractor: Extract config items from Java source code"""
 
 import os
 import re
 import json
-
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 from loguru import logger
 
 from docsagent import config
-from docsagent.code_extract.code_search import CodeFileSearch
-from docsagent.models import ConfigItem
+from docsagent.core.protocols import ItemExtractor
+from docsagent.domains.models import ConfigItem
+from docsagent.tools.code_search import CodeFileSearch
 
 
-class FEConfigParser:
+class FEConfigExtractor:
+    """Extract config items from StarRocks FE source (implements ItemExtractor protocol)"""
+    
     def __init__(self, code_paths: List[str] = None):
-        """Initialize the FE config parser (regex-based, simple and reliable)"""
+        """Initialize the config extractor (regex-based, simple and reliable)"""
         self.supported_extensions = {'.java'}
         self.meta_path = Path(config.META_DIR) / "fe_config.meta"
         self.code_paths = code_paths or self._get_source_code_paths()
         Path(self.meta_path).parent.mkdir(parents=True, exist_ok=True)
-
-
+        logger.debug(f"FEConfigExtractor initialized: {len(self.code_paths)} code files")
+    
     def _get_default_code_paths(self) -> List[str]:
         """Get default code scanning paths - focus on config-related directories"""
         starrocks_dir = Path(config.STARROCKS_HOME)
@@ -34,6 +36,7 @@ class FEConfigParser:
         return full_paths
     
     def _get_source_code_paths(self) -> List[Path]:
+        """Scan and collect all Java source files from default paths"""
         codes = []
         for code_path in self._get_default_code_paths():
             if not os.path.exists(code_path):
@@ -143,8 +146,8 @@ class FEConfigParser:
                 scope="FE",
                 useLocations=[],
                 documents={},
-                define= f"{str(file_path)}:{line_number}",
-                catalog= None
+                define=f"{str(file_path)}:{line_number}",
+                catalog=None
             )
             
             logger.debug(f"Found config item: {field_name} at line {line_number}")
@@ -223,11 +226,11 @@ class FEConfigParser:
         
         return ""
 
-    def extract_all_configs(self) -> List[ConfigItem]:
+    def _extract_all_configs(self) -> List[ConfigItem]:
         """Scan all files in code paths and extract config items"""
         sources_files = self.code_paths
 
-        all_config_items:List[ConfigItem] = []
+        all_config_items: List[ConfigItem] = []
         
         for file_path in sources_files:
             try:
@@ -239,9 +242,9 @@ class FEConfigParser:
                 else:
                     logger.debug(f"No config items found in {file_path}")
             except Exception as e:
-                logger.error(f"Error processing file {file_path}: {e.with_traceback()}")
+                logger.error(f"Error processing file {file_path}: {e}")
 
-
+        # Load existing metadata and merge
         exists_metas = {}
         for meta in self.load_meta_configs():
             exists_metas[meta.name] = meta
@@ -252,27 +255,18 @@ class FEConfigParser:
                 meta.documents = exists_metas[meta.name].documents
                 meta.catalog = exists_metas[meta.name].catalog
 
+        # Search for code usages if configured
         if config.FORCE_RESEARCH_CODE:
             search_keywords = [k.name for k in all_config_items]
-            serach_results = CodeFileSearch(self.code_paths).search(search_keywords)
+            search_results = CodeFileSearch(self.code_paths).search(search_keywords)
             
             for item in all_config_items:
-                if item.name in serach_results:
-                    item.useLocations = serach_results[item.name]
+                if item.name in search_results:
+                    item.useLocations = search_results[item.name]
 
         logger.info(f"Total config items found: {len(all_config_items)}")
         return all_config_items
 
-    def save_meta_configs(self, configs: List[ConfigItem]):
-        """Save extracted config items to a JSON file"""
-        try:
-            data = [c.to_dict() for c in configs]
-            with open(self.meta_path, 'w', encoding='utf-8') as f:
-                json.dump(data, f, indent=2, ensure_ascii=False)
-            logger.info(f"Saved {len(configs)} config items to {self.meta_path}")
-        except Exception as e:
-            logger.error(f"Failed to save configs to {self.meta_path}: {e}")
-            
     def load_meta_configs(self) -> List[ConfigItem]:
         """Load config items from saved JSON file"""
         if not os.path.exists(self.meta_path):
@@ -288,3 +282,49 @@ class FEConfigParser:
         except Exception as e:
             logger.error(f"Failed to load configs from {self.meta_path}: {e}")
             return []
+    
+    def extract(self, source: str = None, limit: Optional[int] = None, **kwargs) -> List[ConfigItem]:
+        """Extract config items from source code (implements ItemExtractor protocol)"""
+        logger.info("Starting extraction...")
+        
+        if source:
+            # Temporarily override code paths
+            original_paths = self.code_paths
+            self.code_paths = [source]
+        
+        configs = self._extract_all_configs()
+        
+        if source:
+            # Restore original paths
+            self.code_paths = original_paths
+        
+        if limit is not None:
+            configs = configs[:limit]
+        
+        stats = self.get_statistics(configs)
+        logger.info(f"Extracted {len(configs)} items: {stats}")
+        
+        return configs
+    
+    def get_statistics(self, items: List[ConfigItem]) -> dict:
+        """Calculate basic statistics"""
+        stats = {
+            "total": len(items),
+            "by_scope": {},
+            "by_mutability": {"mutable": 0, "immutable": 0},
+            "with_docs": {"zh": 0, "en": 0, "ja": 0},
+        }
+        
+        for item in items:
+            stats["by_scope"][item.scope] = stats["by_scope"].get(item.scope, 0) + 1
+            
+            if item.isMutable.lower() == "true":
+                stats["by_mutability"]["mutable"] += 1
+            else:
+                stats["by_mutability"]["immutable"] += 1
+            
+            for lang in ["zh", "en", "ja"]:
+                if lang in item.documents and item.documents[lang]:
+                    stats["with_docs"][lang] += 1
+        
+        return stats

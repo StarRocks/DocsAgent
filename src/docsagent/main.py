@@ -9,7 +9,7 @@ import argparse
 from pathlib import Path
 from loguru import logger
 
-from docsagent.agents.config_pipeline import ConfigGenerationPipeline
+from docsagent.domains.factory import create_config_pipeline
 from docsagent import config
 
 
@@ -93,19 +93,31 @@ def generate_docs(args):
     
     # Create pipeline
     if args.type in ['fe_config', 'be_config']:
-        pipeline = ConfigGenerationPipeline()
+        logger.info(f"Creating {args.type} documentation pipeline...")
+        pipeline = create_config_pipeline()
     else:
         logger.error(f"Unsupported type: {args.type}")
         sys.exit(1)
     
     # Run pipeline
     try:
-        pipeline.run(
+        logger.info(f"Starting documentation generation for {args.type}...")
+        logger.info("-" * 60)
+        
+        stats = pipeline.run(
+            source=None,  # Use default paths from config
+            limit=None,   # Generate all items (remove limit=1 for production)
             output_dir=config.DOCS_OUTPUT_DIR,
             target_langs=config.TARGET_LANGS,
-            limit=1
+            generate_missing=True
         )
-        logger.info("\n✅ Documentation generation completed successfully!")
+        
+        logger.info("\n" + "=" * 60)
+        logger.info("✅ Documentation generation completed successfully!")
+        logger.info(f"   • Total items: {stats.get('total_items', 0)}")
+        logger.info(f"   • Languages: {', '.join(config.TARGET_LANGS)}")
+        logger.info(f"   • Output: {config.DOCS_OUTPUT_DIR}")
+        logger.info("=" * 60)
     except Exception as e:
         logger.error(f"\n❌ Documentation generation failed: {e}")
         import traceback

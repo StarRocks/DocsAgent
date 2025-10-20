@@ -1,6 +1,5 @@
-"""
-TranslationAgent: Pure translation functionality without document structure handling
-"""
+"""TranslationAgent: Translate text to target languages"""
+
 from typing import Literal
 from loguru import logger
 
@@ -11,28 +10,10 @@ from docsagent.agents.llm import get_default_chat_model
 
 
 class TranslationAgent:
-    """
-    Pure translation agent - only handles text translation
+    """Pure translation agent - text only, no document structure handling"""
     
-    Responsibilities:
-    - Translate text from English to target language
-    - Handle terminology consistency
-    - Provide fallback on errors
-    
-    NOT responsible for:
-    - Document structure (splitting/merging)
-    - Batch processing logic
-    - File I/O
-    """
-    
-    def __init__(self, chat_model: BaseChatModel = None, source_lang: str = 'en'):
-        """
-        Initialize the translation agent
-        
-        Args:
-            chat_model: LangChain chat model (default: from config)
-        """
-        self.chat_model = chat_model or get_default_chat_model()
+    def __init__(self, source_lang: str = 'en'):
+        self.chat_model = get_default_chat_model()
         self.source_lang = source_lang
         logger.info("TranslationAgent initialized")
     
