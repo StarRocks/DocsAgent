@@ -109,7 +109,8 @@ class DocGenerationPipeline(Generic[T]):
         self,
         output_dir: str,
         target_langs: List[str] = None,
-        force_search_code: bool = True,
+        force_search_code: bool = False,
+        ignore_miss_usage: bool = True,
         limit: Optional[int] = None,
         **kwargs
     ) -> Dict[str, Any]:
@@ -128,6 +129,7 @@ class DocGenerationPipeline(Generic[T]):
             output_dir: Output directory for generated docs
             target_langs: Target languages (default: ['en', 'zh'])
             force_search_code: Whether to force re-search code for items without any
+            ignore_miss_usage: Whether to ignore items without usage locations
             limit: Limit number of items (for testing)
             **kwargs: Additional options passed to extractor/persister
         
@@ -145,7 +147,7 @@ class DocGenerationPipeline(Generic[T]):
         
         # Step 1: Extract items
         logger.info(f"[Step 1/6] Extracting {self.item_type_name}s...")
-        items = self.extractor.extract(limit, force_search_code, **kwargs)
+        items = self.extractor.extract(limit, force_search_code, ignore_miss_usage, **kwargs)
         logger.info(f"✓ Extracted {len(items)} {self.item_type_name}s")
         
         # Step 2: Analyze and group

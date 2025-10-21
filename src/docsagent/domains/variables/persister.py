@@ -7,7 +7,7 @@ from string import Template
 from loguru import logger
 
 from docsagent.core import DocPersister
-from docsagent.domains.models import ConfigItem, CATALOGS_LANGS
+from docsagent.domains.models import VariableItem
 from docsagent import config
 
 
@@ -16,46 +16,33 @@ class VariablesPersister(DocPersister):
     
     def __init__(self):
         self.docs_module_dir = config.DOCS_MODULE_DIR
-        self.meta_path = Path(config.META_DIR) / "fe_config.meta"
+        self.meta_path = Path(config.META_DIR) / "variables.meta"
         logger.debug(f"VariablesPersister initialized: docs={self.docs_module_dir}, meta={self.meta_path}")
-    
-    def _save_documents(self, configs: List[ConfigItem], output_dir: str, target_langs: List[str]) -> None:
+
+    def _save_documents(self, variables: List[VariableItem], output_dir: str, target_langs: List[str]) -> None:
         """Generate and save markdown docs for each language"""
-        catalogs = self._organize_by_catalog(configs)
+        variables = sorted(variables, key=lambda v: v.show)
         
+        global_variables = [v for v in variables if v.scope.lower() == "global"]
+        target_docs = {lang: "" for lang in target_langs}
+        
+        global_str = ""
+        for g in global_variables:
+            global_str += f"* {g.show}\n"
+        target_docs["global"] = global_str
+
         for lang in target_langs:
             logger.debug(f"Generating {lang} docs...")
-            
-            target_docs = {lang: ""}
-            
-            for catalog in CATALOGS_LANGS:
-                if catalog not in catalogs or not catalogs[catalog]:
-                    continue
-                
-                target_docs[lang] += f"### {CATALOGS_LANGS[catalog][lang]}\n\n"
-                
-                for config in catalogs[catalog]:
-                    if lang in config.documents:
-                        target_docs[lang] += config.documents[lang] + "\n\n"
-                    else:
-                        logger.warning(f"Missing {lang} doc: {config.name}")
-            
+            for var in variables:
+                if lang in var.documents:
+                    target_docs[lang] += var.documents[lang] + "\n\n"
             self._apply_template_and_save(target_docs, lang, output_dir)
         
         logger.info(f"Saved docs for {len(target_langs)} languages")
     
-    def _organize_by_catalog(self, configs: List[ConfigItem]) -> dict:
-        """Group configs by catalog"""
-        catalogs = defaultdict(list)
-        for cc in configs:
-            catalogs[cc.catalog].append(cc)
-        
-        logger.debug(f"Grouped into {len(catalogs)} catalogs")
-        return catalogs
-    
     def _apply_template_and_save(self, target_docs: dict, lang: str, output_dir: str) -> None:
         """Apply template ($content substitution) and save to file"""
-        template_path = self.docs_module_dir / lang / "FE_configuration.md"
+        template_path = self.docs_module_dir / lang / "System_variable.md"
         
         if not template_path.exists():
             logger.warning(f"Template not found: {template_path}")
@@ -63,9 +50,9 @@ class VariablesPersister(DocPersister):
         else:
             with open(template_path, 'r', encoding='utf-8') as f:
                 template = Template(f.read())
-            final_content = template.safe_substitute(outputs=target_docs[lang])
+            final_content = template.safe_substitute(global_variables_list=target_docs["global"], variables_lists=target_docs[lang])
         
-        output_path = Path(output_dir) / lang / "FE_configuration.md"
+        output_path = Path(output_dir) / lang / "System_variable.md"
         output_path.parent.mkdir(parents=True, exist_ok=True)
         
         with open(output_path, 'w', encoding='utf-8') as f:

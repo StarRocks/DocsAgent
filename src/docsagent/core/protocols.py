@@ -21,6 +21,7 @@ from typing import Protocol, TypeVar, Dict, Any, List, Optional, runtime_checkab
 from abc import abstractmethod
 from loguru import logger
 
+from docsagent.tools.code_search import CodeFileSearch
 
 @runtime_checkable
 class DocumentableItem(Protocol):
@@ -96,6 +97,13 @@ class DocumentableItem(Protocol):
             List[str]: List of usage locations (e.g., ['src/config.py:45', 'src/main.py:102'])
         """
         ...
+        
+    @property
+    def version(self) -> List[str]:
+        """
+        Version when the item was introduced.
+        """
+        ...
     
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -161,12 +169,14 @@ class ItemExtractor(Protocol[T]):
     - get_statistics(): Calculate statistics
     
     Subclass must provide attributes:
+    - item_class: The DocumentableItem class to instantiate (e.g., ConfigItem, VariableItem)
     - meta_path: Path to meta file
     - supported_extensions: Set of file extensions to process
     - code_paths: List of file paths to process
     """
     
     # Required attributes (to be set by subclass)
+    item_class: type = None  # Must be set to the concrete item class (e.g., ConfigItem)
     meta_path: Path = None
     supported_extensions: set = set()
     code_paths: List[str] = []
@@ -200,8 +210,9 @@ class ItemExtractor(Protocol[T]):
         """
         logger.info("Starting extraction...")
         
+        kwargs['force_search_code'] = force_search_code
         # Extract all items (with meta merging)
-        items = self._extract_all_items(force_search_code=force_search_code)
+        items = self._extract_all_items(**kwargs)
         
         # Filter items without usage (if configured)
         if not ignore_miss_usage:
@@ -221,7 +232,7 @@ class ItemExtractor(Protocol[T]):
         
         # Log statistics
         stats = self.get_statistics(items) if hasattr(self, 'get_statistics') else {}
-        logger.success(f"Extracted {len(items)} items: {stats}")
+        logger.info(f"Extracted {len(items)} items: {stats}")
         
         return items
     
@@ -326,7 +337,7 @@ class ItemExtractor(Protocol[T]):
         """
         Deserialize item from dictionary.
         
-        Default implementation calls T.from_dict(data).
+        Default implementation uses self.item_class.from_dict(data).
         Subclass can override for custom deserialization.
         
         Args:
@@ -334,10 +345,16 @@ class ItemExtractor(Protocol[T]):
             
         Returns:
             T: Reconstructed item instance
+            
+        Raises:
+            AttributeError: If item_class is not set on the subclass
         """
-        # Default: assume the item class has a from_dict class method
-        # This works for most cases, but can be overridden
-        return type(self).__orig_bases__[0].__args__[0].from_dict(data)
+        if not hasattr(self, 'item_class') or self.item_class is None:
+            raise AttributeError(
+                f"{self.__class__.__name__} must set 'item_class' attribute "
+                f"(e.g., item_class = ConfigItem)"
+            )
+        return self.item_class.from_dict(data)
     
     # ===== Abstract methods (must be implemented by subclass) =====
     
@@ -361,7 +378,7 @@ class ItemExtractor(Protocol[T]):
         ...
 
     @abstractmethod
-    def _extract_all_items(self, force_search_code: bool = False) -> List[T]:
+    def _extract_all_items(self, **kwargs) -> List[T]:
         """
         Extract all items from source.
         
@@ -541,7 +558,7 @@ class DocPersister(Protocol[T]):
         # Save documents (domain-specific implementation)
         self._save_documents(items, output_dir, target_langs)
         
-        logger.success(f"Saved {len(items)} items")
+        logger.info(f"Saved {len(items)} items")
     
     def _save_meta(self, items: List[T]) -> None:
         """
@@ -571,7 +588,7 @@ class DocPersister(Protocol[T]):
         except Exception as e:
             logger.error(f"Failed to save metadata to {self.meta_path}: {e}")
         
-        logger.success("Metadata saved")
+        logger.info("Metadata saved")
     
     # ===== Abstract methods (must be implemented by subclass) =====
     

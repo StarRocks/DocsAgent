@@ -99,7 +99,7 @@ class ConfigDocAgent:
         except Exception as e:
             logger.error(f"LLM generation failed: {e}")
             # Fallback: generate basic documentation
-            state['raw_output'] = self._generate_fallback_doc(state['config'])
+            state['raw_output'] = self.generate_fallback_doc(state['config'])
         
         return state
     
@@ -177,7 +177,7 @@ class ConfigDocAgent:
         
         return prompt
     
-    def _generate_fallback_doc(self, config: ConfigItem) -> str:
+    def generate_fallback_doc(self, config: ConfigItem) -> str:
         """Generate fallback documentation when LLM fails"""
         fallback = f"""
         ##### {config.name}

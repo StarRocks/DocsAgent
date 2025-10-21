@@ -28,6 +28,7 @@ class BEConfigExtractor(ItemExtractor):
     - _extract_all_items(): BE-specific extraction logic
     - get_statistics(): Statistics calculation
     """
+    item_class = ConfigItem  # Item type for deserialization
     
     def __init__(self, code_paths: List[str] = None):
         """Initialize the BE config extractor"""
@@ -165,14 +166,15 @@ class BEConfigExtractor(ItemExtractor):
                 useLocations=[],
                 documents={},
                 define=f"{str(file_path)}:{line_number}",
-                catalog=None
+                catalog=None,
+                version=None
             )
             
             items.append(item)
         
         return items
 
-    def _extract_all_items(self, force_search_code: bool = False) -> List[ConfigItem]:
+    def _extract_all_items(self, **kwargs) -> List[ConfigItem]:
         """Scan all files and extract config items (required by ExtractorMixin)"""
         sources_files = self.code_paths
 
@@ -200,9 +202,10 @@ class BEConfigExtractor(ItemExtractor):
                 meta.useLocations = exists_metas[meta.name].useLocations
                 meta.documents = exists_metas[meta.name].documents
                 meta.catalog = exists_metas[meta.name].catalog
+                meta.version = exists_metas[meta.name].version
 
         # Search for code usages if configured
-        if force_search_code:
+        if 'force_search_code' in kwargs and kwargs['force_search_code']:
             search_keywords = [k.name for k in all_items]
             search_results = CodeFileSearch(self.code_paths).search(search_keywords)
             
