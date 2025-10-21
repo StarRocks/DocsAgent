@@ -9,7 +9,7 @@ from docsagent.domains.models import ConfigItem
 from docsagent.agents.config_doc_agent import ConfigDocAgent
 
 
-class BEConfigDocGenerator:
+class BEConfigDocGenerator(DocGenerator):
     """Generate documentation using LLM (implements DocGenerator protocol)"""
     
     def __init__(self):

@@ -37,7 +37,7 @@ class AppConfig(BaseSettings):
     LLM_URL: str = ''
     LLM_PROVIDER: str = 'openai'
     LLM_TEMPERATURE: float = 0.1
-    LLM_MAX_TOKENS: int = 500
+    LLM_MAX_TOKENS: int = 5000
     
     # Processing configuration
     FORCE_RESEARCH_CODE: bool = False
