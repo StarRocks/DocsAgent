@@ -3,6 +3,8 @@
 
 from dataclasses import dataclass, field, asdict
 from typing import List, Dict, Any
+
+from docsagent.core.protocols import DocumentableItem
 import json
 
 
@@ -45,7 +47,7 @@ def get_default_catalog() -> str:
 
 
 @dataclass
-class ConfigItem:
+class ConfigItem(DocumentableItem):
     """
     FE/BE configuration item model.
     
@@ -79,34 +81,45 @@ class ConfigItem:
     catalog: str = None  # Options: VALID_CATALOGS
     
     def to_dict(self) -> Dict[str, Any]:
-        """
-        Convert to dict for JSON serialization.
-        
-        Returns:
-            Dict[str, Any]: Dictionary representation of the config item
-        """
         return asdict(self)
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ConfigItem":
-        """
-        Create instance from dict.
-        
-        Args:
-            data: Dictionary representation of a config item
-        
-        Returns:
-            ConfigItem: Reconstructed config item instance
-        """
         return cls(**data)
     
     # ============ Additional Methods ============
     
     def to_json(self) -> str:
-        """
-        Convert to JSON string.
-        
-        Returns:
-            str: JSON representation with UTF-8 encoding
-        """
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=2)
+
+
+class VariableItem(DocumentableItem):
+    """
+    Variable configuration item model, extends DocumentableItem.
+    
+    Additional attributes or methods specific to variable configs can be added here.
+    """
+        # Required fields (from source code parsing)
+    name: str
+    show: str
+    type: str
+    defaultValue: str
+    comment: str
+    invisble: bool # true or false
+    scope: str  # "Session" or "Global"
+    
+    # Optional fields with defaults
+    useLocations: List[str] = field(default_factory=list)
+    documents: Dict[str, str] = field(default_factory=dict)  # Multi-language documentation
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ConfigItem":
+        return cls(**data)
+    
+    # ============ Additional Methods ============
+    
+    def to_json(self) -> str:
+        return json.dumps(self.to_dict(), ensure_ascii=False, indent=2)    

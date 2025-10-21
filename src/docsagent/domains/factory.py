@@ -44,7 +44,8 @@ def create_fe_config_pipeline() -> DocGenerationPipeline[ConfigItem]:
         extractor=extractor,
         doc_generator=generator,
         translation_agent=translation_agent,
-        persister=persister
+        persister=persister,
+        item_type_name="FE Config"
     )
     
     logger.info("Pipeline created")
@@ -76,7 +77,8 @@ def create_be_config_pipeline():
         extractor=extractor,
         doc_generator=generator,
         translation_agent=translation_agent,
-        persister=persister
+        persister=persister,
+        item_type_name="BE Config"
     )
     
     logger.success("Pipeline created")

@@ -5,32 +5,19 @@ from typing import List
 from collections import defaultdict
 from string import Template
 from loguru import logger
-import json
 
+from docsagent.core import DocPersister
 from docsagent.domains.models import ConfigItem, CATALOGS_LANGS
 from docsagent import config
 
 
-class FEConfigPersister:
+class FEConfigPersister(DocPersister):
     """Save configuration documentation to files (implements DocPersister protocol)"""
     
     def __init__(self):
         self.docs_module_dir = config.DOCS_MODULE_DIR
         self.meta_path = Path(config.META_DIR) / "fe_config.meta"
         logger.debug(f"FEConfigPersister initialized: docs={self.docs_module_dir}, meta={self.meta_path}")
-    
-    def save(self, items: List[ConfigItem], output_dir: str, target_langs: List[str]) -> None:
-        """Save docs and metadata for multiple languages"""
-        if not items:
-            logger.warning("No items to save")
-            return
-        
-        logger.info(f"Saving {len(items)} items → {output_dir} [{', '.join(target_langs)}]")
-        
-        self._save_meta(items)
-        self._save_documents(items, output_dir, target_langs)
-        
-        logger.success(f"Saved {len(items)} config items")
     
     def _save_documents(self, configs: List[ConfigItem], output_dir: str, target_langs: List[str]) -> None:
         """Generate and save markdown docs for each language"""
@@ -85,17 +72,3 @@ class FEConfigPersister:
             f.write(final_content)
         
         logger.debug(f"Saved → {output_path}")
-    
-    def _save_meta(self, configs: List[ConfigItem]) -> None:
-        """Save metadata in JSON format"""
-        logger.info(f"Saving metadata → {self.meta_path}")
-        
-        try:
-            data = [c.to_dict() for c in configs]
-            with open(self.meta_path, 'w', encoding='utf-8') as f:
-                json.dump(data, f, indent=2, ensure_ascii=False)
-            logger.info(f"Saved {len(configs)} config items to {self.meta_path}")
-        except Exception as e:
-            logger.error(f"Failed to save configs to {self.meta_path}: {e}")
-        
-        logger.success(f"Metadata saved")

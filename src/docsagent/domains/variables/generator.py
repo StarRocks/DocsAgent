@@ -1,4 +1,4 @@
-"""FEConfigDocGenerator: Generate English docs using LLM"""
+"""VariablesDocGenerator: Generate English docs using LLM"""
 
 from typing import Optional
 from loguru import logger
@@ -9,12 +9,12 @@ from docsagent.domains.models import ConfigItem
 from docsagent.agents.config_doc_agent import ConfigDocAgent
 
 
-class FEConfigDocGenerator(DocGenerator):
+class VariablesDocGenerator(DocGenerator):
     """Generate documentation using LLM (implements DocGenerator protocol)"""
     
     def __init__(self):
         self.agent = ConfigDocAgent()
-        logger.debug("FEConfigDocGenerator initialized")
+        logger.debug("VariablesDocGenerator initialized")
     
     def generate(self, item: ConfigItem) -> str:
         """Generate English documentation for a config item"""

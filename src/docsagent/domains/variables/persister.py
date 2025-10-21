@@ -1,4 +1,4 @@
-"""BEConfigPersister: Save multi-language docs and metadata"""
+"""VariablesPersister: Save multi-language docs and metadata"""
 
 from pathlib import Path
 from typing import List
@@ -11,13 +11,13 @@ from docsagent.domains.models import ConfigItem, CATALOGS_LANGS
 from docsagent import config
 
 
-class BEConfigPersister(DocPersister):
+class VariablesPersister(DocPersister):
     """Save configuration documentation to files (implements DocPersister protocol)"""
     
     def __init__(self):
         self.docs_module_dir = config.DOCS_MODULE_DIR
-        self.meta_path = Path(config.META_DIR) / "be_config.meta"
-        logger.debug(f"BEConfigPersister initialized: docs={self.docs_module_dir}, meta={self.meta_path}")
+        self.meta_path = Path(config.META_DIR) / "fe_config.meta"
+        logger.debug(f"VariablesPersister initialized: docs={self.docs_module_dir}, meta={self.meta_path}")
     
     def _save_documents(self, configs: List[ConfigItem], output_dir: str, target_langs: List[str]) -> None:
         """Generate and save markdown docs for each language"""
@@ -55,7 +55,7 @@ class BEConfigPersister(DocPersister):
     
     def _apply_template_and_save(self, target_docs: dict, lang: str, output_dir: str) -> None:
         """Apply template ($content substitution) and save to file"""
-        template_path = self.docs_module_dir / lang / "BE_configuration.md"
+        template_path = self.docs_module_dir / lang / "FE_configuration.md"
         
         if not template_path.exists():
             logger.warning(f"Template not found: {template_path}")
@@ -65,7 +65,7 @@ class BEConfigPersister(DocPersister):
                 template = Template(f.read())
             final_content = template.safe_substitute(outputs=target_docs[lang])
         
-        output_path = Path(output_dir) / lang / "BE_configuration.md"
+        output_path = Path(output_dir) / lang / "FE_configuration.md"
         output_path.parent.mkdir(parents=True, exist_ok=True)
         
         with open(output_path, 'w', encoding='utf-8') as f:

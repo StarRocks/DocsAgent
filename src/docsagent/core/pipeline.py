@@ -109,7 +109,7 @@ class DocGenerationPipeline(Generic[T]):
         self,
         output_dir: str,
         target_langs: List[str] = None,
-        generate_missing: bool = True,
+        force_search_code: bool = True,
         limit: Optional[int] = None,
         **kwargs
     ) -> Dict[str, Any]:
@@ -127,7 +127,7 @@ class DocGenerationPipeline(Generic[T]):
         Args:
             output_dir: Output directory for generated docs
             target_langs: Target languages (default: ['en', 'zh'])
-            generate_missing: Whether to generate docs for items without any
+            force_search_code: Whether to force re-search code for items without any
             limit: Limit number of items (for testing)
             **kwargs: Additional options passed to extractor/persister
         
@@ -145,7 +145,7 @@ class DocGenerationPipeline(Generic[T]):
         
         # Step 1: Extract items
         logger.info(f"[Step 1/6] Extracting {self.item_type_name}s...")
-        items = self.extractor.extract(limit, **kwargs)
+        items = self.extractor.extract(limit, force_search_code, **kwargs)
         logger.info(f"✓ Extracted {len(items)} {self.item_type_name}s")
         
         # Step 2: Analyze and group
@@ -156,7 +156,7 @@ class DocGenerationPipeline(Generic[T]):
         logger.info(f"  • Has neither: {len(groups['has_neither'])} {self.item_type_name}s")
         
         # Step 3: Generate for items without docs
-        if generate_missing and groups['has_neither']:
+        if groups['has_neither']:
             if self.doc_generator is None:
                 logger.warning(f"[Step 3/6] Cannot generate docs: no doc_generator provided")
             else:

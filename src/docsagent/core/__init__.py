@@ -19,10 +19,12 @@ from .pipeline import (
 )
 
 __all__ = [
+    # Protocols
     'DocumentableItem',
     'ItemExtractor',
     'DocGenerator',
     'DocPersister',
+    # Pipeline
     'DocGenerationPipeline',
     'DEFAULT_SEPARATOR',
     'DEFAULT_BATCH_SIZE',
