@@ -223,7 +223,8 @@ class VariablesExtractor(ItemExtractor):
             logger.info(f"Searching for {len(all_keywords)} keywords across {len(all_items)} variables...")
             
             # Search for all keywords
-            search_results = CodeFileSearch(self.code_paths).search(all_keywords)
+            search_file = [file for file in self.code_paths if 'variable' not in file.lower()]
+            search_results = CodeFileSearch(search_file).search(all_keywords)
             
             # Aggregate results by variable name
             usage_by_var = {}
