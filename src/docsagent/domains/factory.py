@@ -15,6 +15,10 @@ from docsagent.domains.be_config.extractor import BEConfigExtractor
 from docsagent.domains.be_config.persister import BEConfigPersister
 from docsagent.domains.be_config.generator import BEConfigDocGenerator
 
+from docsagent.domains.variables.persister import VariablesPersister
+from docsagent.domains.variables.generator import VariablesDocGenerator
+from docsagent.domains.variables.extractor import VariablesExtractor
+
 from docsagent.agents.translation_agent import TranslationAgent
 from docsagent import config
 
@@ -81,21 +85,41 @@ def create_be_config_pipeline():
         item_type_name="BE Config"
     )
     
-    logger.success("Pipeline created")
+    logger.info("Pipeline created")
     return pipeline
 
 
 def create_variable_pipeline():
-    """
-    Create a pipeline for session variable documentation (placeholder).
+    logger.info("Creating Variable pipeline...")
     
-    TODO: Implement when variable support is added.
+    logger.debug(f"Config: STARROCKS_HOME={config.STARROCKS_HOME}")
+    logger.debug(f"        DOCS_MODULE_DIR={config.DOCS_MODULE_DIR}")
+    logger.debug(f"        META_DIR={config.META_DIR}")
     
-    Returns:
-        DocGenerationPipeline configured for session variables
-    """
-    raise NotImplementedError("Variable pipeline not yet implemented")
-
+    logger.debug("Initializing components...")
+    
+    extractor = VariablesExtractor()
+    logger.debug("✓ VariablesExtractor")
+    
+    generator = VariablesDocGenerator()
+    logger.debug("✓ VariablesDocGenerator")
+    
+    translation_agent = TranslationAgent()
+    logger.debug("✓ TranslationAgent")
+    
+    persister = VariablesPersister()
+    logger.debug("✓ VariablesPersister")
+    
+    pipeline = DocGenerationPipeline[ConfigItem](
+        extractor=extractor,
+        doc_generator=generator,
+        translation_agent=translation_agent,
+        persister=persister,
+        item_type_name="Variables"
+    )
+    
+    logger.info("Pipeline created")
+    return pipeline
 
 def create_function_pipeline():
     """

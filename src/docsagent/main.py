@@ -109,7 +109,8 @@ def generate_docs(args):
             limit=None,   # Generate all items (remove limit=1 for production)
             output_dir=config.DOCS_OUTPUT_DIR,
             target_langs=config.TARGET_LANGS,
-            generate_missing=True
+            force_search_code=False,
+            ignore_miss_usage=True
         )
         
         logger.info("\n" + "=" * 60)

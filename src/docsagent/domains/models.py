@@ -47,7 +47,7 @@ def get_default_catalog() -> str:
 
 
 @dataclass
-class ConfigItem(DocumentableItem):
+class ConfigItem:
     """
     FE/BE configuration item model.
     
@@ -79,6 +79,7 @@ class ConfigItem(DocumentableItem):
     useLocations: List[str] = field(default_factory=list)
     documents: Dict[str, str] = field(default_factory=dict)  # Multi-language documentation
     catalog: str = None  # Options: VALID_CATALOGS
+    version: List[str] = field(default_factory=list)  # Version introduced
     
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -93,30 +94,32 @@ class ConfigItem(DocumentableItem):
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=2)
 
 
-class VariableItem(DocumentableItem):
+@dataclass
+class VariableItem:
     """
-    Variable configuration item model, extends DocumentableItem.
+    Variable configuration item model, implements DocumentableItem protocol.
     
     Additional attributes or methods specific to variable configs can be added here.
     """
-        # Required fields (from source code parsing)
+    # Required fields (from source code parsing)
     name: str
     show: str
     type: str
     defaultValue: str
     comment: str
-    invisble: bool # true or false
+    invisible: bool  # true or false
     scope: str  # "Session" or "Global"
     
     # Optional fields with defaults
     useLocations: List[str] = field(default_factory=list)
     documents: Dict[str, str] = field(default_factory=dict)  # Multi-language documentation
+    version: List[str] = field(default_factory=list)  # Version introduced
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
     
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ConfigItem":
+    def from_dict(cls, data: Dict[str, Any]) -> "VariableItem":
         return cls(**data)
     
     # ============ Additional Methods ============

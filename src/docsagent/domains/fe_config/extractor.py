@@ -14,6 +14,8 @@ from docsagent.tools import code_tools
 
 
 class FEConfigExtractor(ItemExtractor):
+    item_class = ConfigItem  # Item type for deserialization
+    
     def __init__(self, code_paths: List[str] = None):
         """Initialize the config extractor (regex-based, simple and reliable)"""
         self.supported_extensions = {'.java'}
@@ -106,7 +108,8 @@ class FEConfigExtractor(ItemExtractor):
                 useLocations=[],
                 documents={},
                 define=f"{str(file_path)}:{line_number}",
-                catalog=None
+                catalog=None,
+                version=None
             )
             
             logger.debug(f"Found config item: {field_name} at line {line_number}")
@@ -114,7 +117,7 @@ class FEConfigExtractor(ItemExtractor):
         
         return items
 
-    def _extract_all_items(self, force_search_code: bool = False) -> List[ConfigItem]:
+    def _extract_all_items(self, **kwargs) -> List[ConfigItem]:
         """Scan all files in code paths and extract config items"""
         sources_files = self.code_paths
 
@@ -143,9 +146,10 @@ class FEConfigExtractor(ItemExtractor):
                 meta.useLocations = exists_metas[meta.name].useLocations
                 meta.documents = exists_metas[meta.name].documents
                 meta.catalog = exists_metas[meta.name].catalog
+                meta.version = exists_metas[meta.name].version
 
         # Search for code usages if configured
-        if force_search_code:
+        if 'force_search_code' in kwargs and kwargs['force_search_code']:
             search_keywords = [k.name for k in all_items]
             search_results = CodeFileSearch(self.code_paths).search(search_keywords)
             
