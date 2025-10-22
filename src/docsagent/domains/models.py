@@ -36,6 +36,32 @@ CATALOGS_LANGS = {
 }
 
 
+FUNCTION_CATALOGS = [
+    "aggregate-functions",
+    "array-functions",
+    "binary-functions",
+    "bit-functions",
+    "bitmap-functions",
+    "condition-functions",
+    "crytographic-functions",
+    "date-time-functions",
+    "dict-functions",
+    "hash-functions",
+    "json-functions",
+    "like-predicate-functions",
+    "map-functions",
+    "math-functions",
+    "meta-functions",
+    "percentile-functions",
+    "scalar-functions",
+    "spatial-functions",
+    "string-functions",
+    "struct-functions",
+    "table-functions",
+    "utility-functions",
+]
+
+
 def is_valid_catalog(catalog: str) -> bool:
     """Check if the given catalog is valid"""
     return catalog in VALID_CATALOGS
@@ -109,6 +135,39 @@ class VariableItem:
     comment: str
     invisible: bool  # true or false
     scope: str  # "Session" or "Global"
+    
+    # Optional fields with defaults
+    useLocations: List[str] = field(default_factory=list)
+    documents: Dict[str, str] = field(default_factory=dict)  # Multi-language documentation
+    version: List[str] = field(default_factory=list)  # Version introduced
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "VariableItem":
+        return cls(**data)
+    
+    # ============ Additional Methods ============
+    
+    def to_json(self) -> str:
+        return json.dumps(self.to_dict(), ensure_ascii=False, indent=2)    
+    
+@dataclass
+class FunctionItem:
+    """
+    Variable configuration item model, implements DocumentableItem protocol.
+    
+    Additional attributes or methods specific to variable configs can be added here.
+    """
+    # Required fields (from source code parsing)
+    name: str
+    alias: List[str]
+    signature: List[str]
+    catalog: str # e.g., "String Functions", "Math Functions"
+    module: str # e.g., "Scalar", "Aggregate", "Window"
+    implement_fns: List[str]
+    testCases: List[str]
     
     # Optional fields with defaults
     useLocations: List[str] = field(default_factory=list)

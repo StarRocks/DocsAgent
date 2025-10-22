@@ -223,9 +223,9 @@ class VariablesExtractor(ItemExtractor):
             logger.info(f"Searching for {len(all_keywords)} keywords across {len(all_items)} variables...")
             
             # Search for all keywords
-            search_file = [file for file in self.code_paths if 'variable' not in file.lower()]
-            search_results = CodeFileSearch(search_file).search(all_keywords)
-            
+            code_search = CodeFileSearch(self.code_paths, file_filter=lambda f: 'variable' not in f.name.lower() and f.suffix in ['.java', '.h', '.cpp', '.hpp'])
+            search_results = code_search.search(all_keywords)
+
             # Aggregate results by variable name
             usage_by_var = {}
             for keyword, locations in search_results.items():

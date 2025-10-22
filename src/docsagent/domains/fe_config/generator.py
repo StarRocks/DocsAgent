@@ -16,7 +16,7 @@ class FEConfigDocGenerator(DocGenerator):
         self.agent = ConfigDocAgent()
         logger.debug("FEConfigDocGenerator initialized")
     
-    def generate(self, item: ConfigItem) -> str:
+    def generate(self, item: ConfigItem, **kwargs) -> str:
         """Generate English documentation for a config item"""
         logger.debug(f"Generating doc: {item.name}")
         
