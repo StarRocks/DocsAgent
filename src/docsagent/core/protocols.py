@@ -21,8 +21,6 @@ from typing import Protocol, TypeVar, Dict, Any, List, Optional, runtime_checkab
 from abc import abstractmethod
 from loguru import logger
 
-from docsagent.tools.code_search import CodeFileSearch
-
 @runtime_checkable
 class DocumentableItem(Protocol):
     """

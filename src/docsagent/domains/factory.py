@@ -19,6 +19,11 @@ from docsagent.domains.variables.persister import VariablesPersister
 from docsagent.domains.variables.generator import VariablesDocGenerator
 from docsagent.domains.variables.extractor import VariablesExtractor
 
+from docsagent.domains.functions.persister import FunctionsPersister
+from docsagent.domains.functions.generator import FunctionsDocGenerator
+from docsagent.domains.functions.extractor import FunctionsExtractor
+
+
 from docsagent.agents.translation_agent import TranslationAgent
 from docsagent import config
 
@@ -122,12 +127,32 @@ def create_variable_pipeline():
     return pipeline
 
 def create_function_pipeline():
-    """
-    Create a pipeline for function documentation (placeholder).
+    logger.info("Creating Function pipeline...")
+    logger.debug(f"Config: STARROCKS_HOME={config.STARROCKS_HOME}")
+    logger.debug(f"        DOCS_MODULE_DIR={config.DOCS_MODULE_DIR}")
+    logger.debug(f"        META_DIR={config.META_DIR}")
     
-    TODO: Implement when function support is added.
+    logger.debug("Initializing components...")
     
-    Returns:
-        DocGenerationPipeline configured for functions
-    """
-    raise NotImplementedError("Function pipeline not yet implemented")
+    extractor = FunctionsExtractor()
+    logger.debug("✓ FunctionsExtractor")
+    
+    generator = FunctionsDocGenerator()
+    logger.debug("✓ FunctionsDocGenerator")
+    
+    translation_agent = TranslationAgent()
+    logger.debug("✓ TranslationAgent")
+
+    persister = FunctionsPersister()
+    logger.debug("✓ FunctionsPersister")
+
+    pipeline = DocGenerationPipeline[ConfigItem](
+        extractor=extractor,
+        doc_generator=generator,
+        translation_agent=translation_agent,
+        persister=persister,
+        item_type_name="Variables"
+    )
+    
+    logger.info("Pipeline created")
+    return pipeline

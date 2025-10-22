@@ -207,7 +207,8 @@ class BEConfigExtractor(ItemExtractor):
         # Search for code usages if configured
         if 'force_search_code' in kwargs and kwargs['force_search_code']:
             search_keywords = [k.name for k in all_items]
-            search_results = CodeFileSearch(self.code_paths).search(search_keywords)
+            code_serach = CodeFileSearch(self.code_paths, file_filter=lambda f: f.suffix in ['.cpp', '.h', '.hpp'])
+            search_results = code_serach.search(search_keywords)
             
             for item in all_items:
                 if item.name in search_results:

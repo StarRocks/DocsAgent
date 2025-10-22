@@ -1,23 +1,21 @@
-"""BEConfigDocGenerator: Generate English docs using LLM"""
+"""FEConfigDocGenerator: Generate English docs using LLM"""
 
-from typing import Optional
 from loguru import logger
-from langchain_core.language_models.chat_models import BaseChatModel
 
 from docsagent.core.protocols import DocGenerator
-from docsagent.domains.models import ConfigItem
-from docsagent.agents.config_doc_agent import ConfigDocAgent
+from docsagent.domains.models import FunctionItem
+from docsagent.agents.functions_agent import FunctionDocAgent
 
 
-class BEConfigDocGenerator(DocGenerator):
+class FunctionsDocGenerator(DocGenerator):
     """Generate documentation using LLM (implements DocGenerator protocol)"""
     
     def __init__(self):
-        self.agent = ConfigDocAgent()
-        logger.debug("BEConfigDocGenerator initialized")
+        self.agent = FunctionDocAgent()
+        logger.debug("FunctionsDocGenerator initialized")
     
-    def generate(self, item: ConfigItem, **kwargs) -> str:
-        """Generate English documentation for a config item"""
+    def generate(self, item: FunctionItem, **kwargs) -> str:
+        """Generate English documentation for a function item"""
         logger.debug(f"Generating doc: {item.name}")
         
         try:
@@ -33,3 +31,4 @@ class BEConfigDocGenerator(DocGenerator):
         except Exception as e:
             logger.error(f"Generation failed for {item.name}: {e}")
             return self.agent.generate_fallback_doc(item)
+    

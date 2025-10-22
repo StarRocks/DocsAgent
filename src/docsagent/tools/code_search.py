@@ -4,16 +4,51 @@ import os
 import re
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Set, Tuple
+from typing import Callable, Dict, List, Set, Tuple, Optional
 from loguru import logger
 
 import hyperscan
 
 
 class CodeFileSearch:
-    def __init__(self, code_paths: List[str] = None):
-        """Initialize the code file searcher"""
+    def __init__(
+        self, 
+        code_paths: List[str] = None, 
+        file_filter: Optional[Callable[[Path], bool]] = None,
+        dir_filter: Optional[Callable[[Path], bool]] = None
+    ):
+        """
+        Initialize the code file searcher
+        
+        Args:
+            code_paths: List of paths to search in
+            file_suffix: (Deprecated) List of file suffixes, use file_filter instead
+            file_filter: Callable that takes a file Path and returns True to include
+            dir_filter: Callable that takes a dir Path and returns True to include
+        
+        Examples:
+            # Use file_suffix (old way)
+            searcher = CodeFileSearch(
+                code_paths=['/path'],
+                file_suffix=['.java', '.cpp']
+            )
+            
+            # Use lambda filter (new way)
+            searcher = CodeFileSearch(
+                code_paths=['/path'],
+                file_filter=lambda f: f.suffix in ['.java', '.cpp'],
+                dir_filter=lambda d: d.name not in ['build', 'target', '.git']
+            )
+        """
         self.code_paths = code_paths
+        
+        # File filter
+        self.file_filter = file_filter if file_filter is not None else lambda f: f.suffix in ['.java', '.cpp', '.h', '.hpp', '.cc']
+        self.file_filter = file_filter if file_filter is not None else lambda f: True
+
+        # Directory filter (default: include all)
+        self.dir_filter = dir_filter if dir_filter is not None else lambda d: True
+        
         # Hyperscan database
         self._hs_database = None
         self._hs_keyword_map = {}  # Map pattern ID to keyword
@@ -39,22 +74,25 @@ class CodeFileSearch:
             
             # Handle file path directly
             if path_obj.is_file():
-                if path_obj.suffix in ['.java', '.cpp', '.h', '.hpp', '.cc']:
+                if self.file_filter(path_obj):
                     file_count += 1
                     keyword_line_map = self._search_file(path_obj, keyworks)
                     for keyword, line_numbers in keyword_line_map.items():
                         for line_num in line_numbers:
                             results[keyword].append(f"{str(path_obj)}:{line_num}")
                 else:
-                    logger.debug(f"Skipping unsupported file type: {code_path}")
+                    logger.debug(f"Skipping file (filtered out): {code_path}")
                 continue
             
             # Handle directory path
             logger.debug(f"Searching in code path: {code_path}")
             for root, dirs, files in os.walk(code_path):
+                root_path = Path(root)
                 for file in files:
-                    file_path = Path(root) / file
-                    if file_path.suffix not in ['.java', '.cpp', '.h', '.hpp', '.cc']:
+                    file_path = root_path / file
+                    
+                    # Check if file should be included
+                    if not self.dir_filter(root_path) or not self.file_filter(file_path):
                         continue
                     
                     file_count += 1
