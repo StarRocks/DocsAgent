@@ -10,7 +10,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage, BaseMessage
 
 from docsagent.agents.llm import get_default_chat_model
-from docsagent.agents.tools import get_code_reading_tools
+from docsagent.agents.tools import get_all_tools
 from docsagent.domains.models import FunctionItem, FUNCTION_CATALOGS
 
 
@@ -43,12 +43,14 @@ class FunctionDocAgent:
         """
         self.chat_model = chat_model or get_default_chat_model()
         
-        # Get tools and bind to LLM
-        self.tools = get_code_reading_tools()
+        # Get tools - include StarRocks SQL execution tool if enabled
+        self.tools = get_all_tools(include_starrocks=True, test_sr_connection=True)
+        logger.info("Function agent initialized with SQL execution capability")
+        
         self.llm_with_tools = self.chat_model.bind_tools(self.tools)
             
         self.workflow = self._build_workflow()
-        logger.info("FunctionDocAgent initialized")
+        logger.info("FunctionDocAgent workflow built")
     
     def _build_workflow(self) -> StateGraph:
         """Build the LangGraph workflow"""
@@ -162,7 +164,42 @@ class FunctionDocAgent:
     # Helper methods
     def _build_system_prompt(self) -> str:
         """Build system prompt for the LLM"""
-        return """
+        
+        # Check if SQL execution tool is available
+        has_sql_tool = any(tool.name == 'execute_sql' for tool in self.tools)
+        
+        sql_tool_instruction = ""
+        if has_sql_tool:
+            sql_tool_instruction = """
+        
+        **SQL Execution Tool Available** (OPTIONAL):
+        You have access to `execute_sql` tool to execute SELECT queries on StarRocks.
+        
+        **When to use**:
+        - To test the function with REAL data and get ACTUAL results
+        - To generate accurate, verified examples with real output
+        - To understand edge cases by testing different inputs
+        
+        **How to use**:
+        - Execute simple SELECT queries: SELECT function_name(test_input)
+        - Example: SELECT NOW(), SELECT CONCAT('Hello', ' ', 'World')
+        - Use the actual output in your Examples section
+        
+        **Important restrictions** (READ-ONLY mode):
+        - ONLY SELECT queries are allowed
+        - NO INSERT, UPDATE, DELETE, DROP, CREATE, etc.
+        - NO SHOW or DESCRIBE commands (use SELECT from information_schema instead)
+        - NO multiple statements (no semicolons)
+        
+        **When NOT to use**:
+        - If you can generate clear examples without execution
+        - For functions that need tables with specific data
+        
+        This tool is OPTIONAL. Use it ONLY when it helps generate better examples.
+        If you choose not to use it, generate examples based on the function signature and your knowledge.
+        """
+        
+        return f"""
         You are a technical documentation writer for StarRocks database system.
 
         Your task is to generate clear, concise, and accurate documentation for SQL functions.
@@ -188,6 +225,7 @@ class FunctionDocAgent:
         You have access to two tools to read and search the codebase:
         1. `search_code`: Search for keywords in code files (e.g., find function implementation)
         2. `read_file`: Read specific file content (e.g., read function code details)
+        {sql_tool_instruction}
         
         **About UseLocations** (IMPORTANT):
         - The `UseLocations` field MIGHT contain files related to function implementation
@@ -202,10 +240,11 @@ class FunctionDocAgent:
         
         **Recommended workflow**:
         1. Review function metadata (name, signature, implement_fns)
-        2. (Optional) Use `search_code` with implement_fns to find actual implementation if you need
-        3. (Optional) verify them with `read_file` (but be critical) if UseLocations is provided and you need
-        4. (Optional) Read testCases if available for understanding usage examples
-        5. Generate documentation based on verified findings
+        2. **OPTIONAL**: Use `search_code` with implement_fns to find actual implementation if you need
+        3. **OPTIONAL**: verify them with `read_file` (but be critical) if UseLocations is provided and you need
+        4. **OPTIONAL**: Read testCases if available for understanding usage examples
+        5. **OPTIONAL**: Use `execute_sql` to test the function and get real results for examples
+        6. Generate documentation based on verified findings
         
         **Critical**: Don't blindly trust UseLocations - always verify the code is actually relevant!
 

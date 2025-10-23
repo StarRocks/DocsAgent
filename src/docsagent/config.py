@@ -47,6 +47,13 @@ class AppConfig(BaseSettings):
     LOG_DIR: str = Field(default_factory=lambda: str(Path(__file__).parent.parent.parent / 'logs'))
     LOG_LEVEL: str = 'INFO'
     
+    # StarRocks Client configuration
+    SR_HOST: str = 'localhost'
+    SR_PORT: int = 9030
+    SR_USER: str = 'root'
+    SR_PASSWORD: str = ''
+    SR_DATABASE: str = ''
+    
     @property
     def DOCS_MODULE_DIR(self) -> Path:
         """Computed property for docs module directory"""
