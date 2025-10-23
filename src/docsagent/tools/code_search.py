@@ -4,10 +4,26 @@ import os
 import re
 from collections import defaultdict
 from pathlib import Path
-from typing import Callable, Dict, List, Set, Tuple, Optional
+from typing import Callable, Dict, List, Set, Tuple, Optional, NamedTuple
 from loguru import logger
 
 import hyperscan
+
+
+class SearchMatch(NamedTuple):
+    """Single search match result"""
+    file_path: str
+    line_number: int
+    line_content: str
+    context_before: List[str] = []
+    context_after: List[str] = []
+
+
+class SearchResult(NamedTuple):
+    """Search result for a keyword"""
+    keyword: str
+    matches: List[SearchMatch]
+    total_matches: int
 
 
 class CodeFileSearch:
@@ -54,7 +70,13 @@ class CodeFileSearch:
         self._hs_keyword_map = {}  # Map pattern ID to keyword
 
     def search(self, keyworks: List[str]) -> Dict[str, List[str]]:
-        """Search for keywords in the code paths"""
+        """Search for keywords in the code paths (legacy method)
+        
+        Returns:
+            Dict mapping keyword to list of "file_path:line_number" strings
+            
+        Note: Use search_with_context() for richer results
+        """
         if not self.code_paths:
             logger.error("No code paths provided for searching.")
             return {}
@@ -105,6 +127,90 @@ class CodeFileSearch:
         
         logger.info(f"Searched {file_count} files, found {len(results)} keywords")
         return dict(results)
+    
+    def search_with_context(
+        self, 
+        keywords: List[str],
+        context_lines: int = 3,
+        max_matches_per_keyword: int = 100
+    ) -> Dict[str, SearchResult]:
+        """Search for keywords with context lines
+        
+        Args:
+            keywords: List of keywords to search for
+            context_lines: Number of lines before/after to include (default: 3)
+            max_matches_per_keyword: Maximum matches to return per keyword (default: 100)
+            
+        Returns:
+            Dict mapping keyword to SearchResult containing matches with context
+            
+        Examples:
+            >>> searcher = CodeFileSearch(code_paths=['/path/to/code'])
+            >>> results = searcher.search_with_context(['ConfigBase', 'init_db'])
+            >>> for keyword, result in results.items():
+            ...     print(f"{keyword}: {result.total_matches} matches")
+            ...     for match in result.matches[:5]:
+            ...         print(f"  {match.file_path}:{match.line_number}")
+        """
+        if not self.code_paths:
+            logger.error("No code paths provided for searching.")
+            return {}
+
+        # Compile Hyperscan patterns
+        self._compile_hyperscan_patterns(keywords)
+
+        # Store matches: {keyword: [SearchMatch]}
+        keyword_matches = defaultdict(list)
+        file_count = 0
+        
+        for code_path in self.code_paths:
+            if not os.path.exists(code_path):
+                logger.warning(f"Code path does not exist: {code_path}")
+                continue
+
+            path_obj = Path(code_path)
+            
+            # Handle file path directly
+            if path_obj.is_file():
+                if self.file_filter(path_obj):
+                    file_count += 1
+                    self._search_file_with_context(
+                        path_obj, keywords, context_lines, keyword_matches, max_matches_per_keyword
+                    )
+                else:
+                    logger.debug(f"Skipping file (filtered out): {code_path}")
+                continue
+            
+            # Handle directory path
+            logger.debug(f"Searching in code path: {code_path}")
+            for root, dirs, files in os.walk(code_path):
+                root_path = Path(root)
+                for file in files:
+                    file_path = root_path / file
+                    
+                    # Check if file should be included
+                    if not self.dir_filter(root_path) or not self.file_filter(file_path):
+                        continue
+                    
+                    file_count += 1
+                    self._search_file_with_context(
+                        file_path, keywords, context_lines, keyword_matches, max_matches_per_keyword
+                    )
+        
+        # Convert to SearchResult objects
+        results = {}
+        for keyword, matches in keyword_matches.items():
+            results[keyword] = SearchResult(
+                keyword=keyword,
+                matches=matches[:max_matches_per_keyword],
+                total_matches=len(matches)
+            )
+        
+        logger.info(
+            f"Searched {file_count} files, found {len(results)} keywords "
+            f"with {sum(r.total_matches for r in results.values())} total matches"
+        )
+        return results
     
     def _compile_hyperscan_patterns(self, keywords: List[str]):
         """Compile patterns using Hyperscan for high-performance matching"""
@@ -199,3 +305,63 @@ class CodeFileSearch:
             logger.error(f"Hyperscan error in {file_path}: {e}")
         
         return dict(keyword_lines)
+    
+    def _search_file_with_context(
+        self,
+        file_path: Path,
+        keywords: List[str],
+        context_lines: int,
+        keyword_matches: Dict[str, List[SearchMatch]],
+        max_matches_per_keyword: int
+    ) -> None:
+        """Search for keywords in a file and collect matches with context
+        
+        Args:
+            file_path: Path to the file to search
+            keywords: List of keywords to search for
+            context_lines: Number of lines before/after to include
+            keyword_matches: Dict to store matches (modified in place)
+            max_matches_per_keyword: Stop searching for a keyword after this many matches
+        """
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                lines = f.readlines()
+            
+            # Get line numbers where keywords appear
+            content = ''.join(lines)
+            keyword_line_map = self._search_with_hyperscan(content, file_path)
+            
+            # For each keyword and its matching lines
+            for keyword, line_numbers in keyword_line_map.items():
+                # Check if already have enough matches
+                if len(keyword_matches[keyword]) >= max_matches_per_keyword:
+                    continue
+                
+                for line_num in line_numbers:
+                    # Stop if reached max matches
+                    if len(keyword_matches[keyword]) >= max_matches_per_keyword:
+                        break
+                    
+                    # Get context (convert to 0-indexed)
+                    line_idx = line_num - 1
+                    start_idx = max(0, line_idx - context_lines)
+                    end_idx = min(len(lines), line_idx + context_lines + 1)
+                    
+                    # Extract context lines
+                    context_before = [line.rstrip('\n') for line in lines[start_idx:line_idx]]
+                    line_content = lines[line_idx].rstrip('\n')
+                    context_after = [line.rstrip('\n') for line in lines[line_idx + 1:end_idx]]
+                    
+                    # Create match object
+                    match = SearchMatch(
+                        file_path=str(file_path),
+                        line_number=line_num,
+                        line_content=line_content,
+                        context_before=context_before,
+                        context_after=context_after
+                    )
+                    
+                    keyword_matches[keyword].append(match)
+            
+        except Exception as e:
+            logger.error(f"Error searching file {file_path}: {e}")
