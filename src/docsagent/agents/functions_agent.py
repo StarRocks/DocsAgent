@@ -1,14 +1,16 @@
 """
 FunctionDocAgent: Generate English documentation for SQL functions using LangGraph
 """
-from typing import TypedDict
+from typing import TypedDict, Sequence
 from loguru import logger
 
 from langgraph.graph import StateGraph, END
+from langgraph.prebuilt import ToolNode
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage, BaseMessage
 
 from docsagent.agents.llm import get_default_chat_model
+from docsagent.agents.tools import get_code_reading_tools
 from docsagent.domains.models import FunctionItem, FUNCTION_CATALOGS
 
 
@@ -16,6 +18,7 @@ from docsagent.domains.models import FunctionItem, FUNCTION_CATALOGS
 class FunctionDocState(TypedDict):
     """State for function documentation generation workflow"""
     func: FunctionItem              # Input: function item
+    messages: Sequence[BaseMessage] # Message history for tool-enabled workflow
     prompt: str                     # Prepared prompt for LLM
     raw_output: str                 # Raw LLM output
     documentation: str              # Final formatted documentation
@@ -25,8 +28,10 @@ class FunctionDocAgent:
     """
     LangGraph-based agent for generating SQL function documentation
     
+    Enhanced with code reading tools to understand function implementation.
+    
     Workflow:
-        func -> prepare_prompt -> generate -> format -> documentation
+        func -> prepare_prompt -> generate (with tools) -> format -> documentation
     """
     
     def __init__(self, chat_model: BaseChatModel = None):
@@ -37,6 +42,11 @@ class FunctionDocAgent:
             chat_model: LangChain chat model (default: from config)
         """
         self.chat_model = chat_model or get_default_chat_model()
+        
+        # Get tools and bind to LLM
+        self.tools = get_code_reading_tools()
+        self.llm_with_tools = self.chat_model.bind_tools(self.tools)
+            
         self.workflow = self._build_workflow()
         logger.info("FunctionDocAgent initialized")
     
@@ -49,15 +59,38 @@ class FunctionDocAgent:
         workflow.add_node("generate", self._generate)
         workflow.add_node("classify", self._classify)
         workflow.add_node("format", self._format)
-        
-        # Define edges: prepare_prompt → generate → classify → format
+        workflow.add_node("tools", ToolNode(self.tools))
+
+        # Define edges
         workflow.set_entry_point("prepare_prompt")
         workflow.add_edge("prepare_prompt", "generate")
-        workflow.add_edge("generate", "classify")
+        
+        # Add conditional edge for tool usage
+        workflow.add_conditional_edges(
+            "generate",
+            self._should_continue,
+            {
+                "tools": "tools",
+                "classify": "classify"
+            }
+        )
+        workflow.add_edge("tools", "generate")  # Loop back after tool use
+            
         workflow.add_edge("classify", "format")
         workflow.add_edge("format", END)
         
         return workflow.compile()
+    
+    def _should_continue(self, state: FunctionDocState) -> str:
+        """Decide whether to use tools or proceed to classify"""
+        messages = state.get('messages', [])
+        if not messages:
+            return "classify"
+        
+        last_message = messages[-1]
+        if hasattr(last_message, 'tool_calls') and last_message.tool_calls:
+            return "tools"
+        return "classify"
     
     # Node implementations
     def _prepare_prompt(self, state: FunctionDocState) -> FunctionDocState:
@@ -73,6 +106,13 @@ class FunctionDocAgent:
         prompt = self._build_user_prompt(func)
         state['prompt'] = prompt
         
+        # Initialize messages for tool-enabled workflow
+        system_prompt = self._build_system_prompt()
+        state['messages'] = [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=prompt)
+        ]
+        
         return state
 
     def _generate(self, state: FunctionDocState) -> FunctionDocState:
@@ -84,17 +124,16 @@ class FunctionDocAgent:
         logger.info("Calling LLM to generate documentation")
         
         try:
-            system_prompt = self._build_system_prompt()
-            user_prompt = state['prompt']
+            # Use messages for tool-enabled workflow
+            messages = state['messages']
+            response = self.llm_with_tools.invoke(messages)
+            state['messages'].append(response)
             
-            messages = [
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=user_prompt)
-            ]
-            
-            response = self.chat_model.invoke(messages)
-            state['raw_output'] = response.content.strip()
-            logger.debug(f"Generated {len(state['raw_output'])} characters")
+            # Extract content if this is final response (no tool calls)
+            if not hasattr(response, 'tool_calls') or not response.tool_calls:
+                state['raw_output'] = response.content.strip()
+                
+            logger.debug(f"Generated {len(state.get('raw_output', ''))} characters")
             
         except Exception as e:
             logger.error(f"LLM generation failed: {e}")
@@ -144,6 +183,31 @@ class FunctionDocAgent:
         - Be specific and avoid vague statements
         - Focus on practical usage with real examples
         - Examples should use Plain text code blocks for SQL output
+        
+        **Code Reading Tools Available**:
+        You have access to two tools to read and search the codebase:
+        1. `search_code`: Search for keywords in code files (e.g., find function implementation)
+        2. `read_file`: Read specific file content (e.g., read function code details)
+        
+        **About UseLocations** (IMPORTANT):
+        - The `UseLocations` field MIGHT contain files related to function implementation
+        - **WARNING**: These locations are NOT always accurate and may include false positives
+        - You MUST verify if a location actually contains the function implementation
+        - Some locations might be test files, unrelated code, or caller code (not the actual implementation)
+        
+        **About implement_fns**:
+        - This field contains the actual C++ implementation function names
+        - Use these names to search for the real implementation code
+        - Example: If implement_fns contains "StringFunctions::like", search for that in the codebase
+        
+        **Recommended workflow**:
+        1. Review function metadata (name, signature, implement_fns)
+        2. (Optional) Use `search_code` with implement_fns to find actual implementation if you need
+        3. (Optional) verify them with `read_file` (but be critical) if UseLocations is provided and you need
+        4. (Optional) Read testCases if available for understanding usage examples
+        5. Generate documentation based on verified findings
+        
+        **Critical**: Don't blindly trust UseLocations - always verify the code is actually relevant!
 
         Output only the documentation content, no additional commentary. The output format should be exactly like this:
 

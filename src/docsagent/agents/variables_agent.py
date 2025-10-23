@@ -1,14 +1,16 @@
 """
 VariableDocAgent: Generate English documentation for session/global variables using LangGraph
 """
-from typing import TypedDict
+from typing import TypedDict, Sequence
 from loguru import logger
 
 from langgraph.graph import StateGraph, END
+from langgraph.prebuilt import ToolNode
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage, BaseMessage
 
 from docsagent.agents.llm import get_default_chat_model
+from docsagent.agents.tools import get_code_reading_tools
 from docsagent.domains.models import VariableItem
 
 
@@ -16,6 +18,7 @@ from docsagent.domains.models import VariableItem
 class VariableDocState(TypedDict):
     """State for variable documentation generation workflow"""
     variable: VariableItem          # Input: variable item
+    messages: Sequence[BaseMessage] # Message history for tool-enabled workflow
     prompt: str                     # Prepared prompt for LLM
     raw_output: str                 # Raw LLM output
     documentation: str              # Final formatted documentation
@@ -25,8 +28,10 @@ class VariableDocAgent:
     """
     LangGraph-based agent for generating variable documentation
     
+    Enhanced with code reading tools to understand variable usage in codebase.
+    
     Workflow:
-        variable -> prepare_prompt -> generate -> format -> documentation
+        variable -> prepare_prompt -> generate (with tools) -> format -> documentation
     """
     
     def __init__(self, chat_model: BaseChatModel = None):
@@ -37,6 +42,11 @@ class VariableDocAgent:
             chat_model: LangChain chat model (default: from config)
         """
         self.chat_model = chat_model or get_default_chat_model()
+        
+        # Get tools and bind to LLM
+        self.tools = get_code_reading_tools()
+        self.llm_with_tools = self.chat_model.bind_tools(self.tools)
+            
         self.workflow = self._build_workflow()
         logger.info("VariableDocAgent initialized")
     
@@ -48,14 +58,37 @@ class VariableDocAgent:
         workflow.add_node("prepare_prompt", self._prepare_prompt)
         workflow.add_node("generate", self._generate)
         workflow.add_node("format", self._format)
+        workflow.add_node("tools", ToolNode(self.tools))
 
-        # Define edges: prepare_prompt → generate → format
+        # Define edges
         workflow.set_entry_point("prepare_prompt")
         workflow.add_edge("prepare_prompt", "generate")
-        workflow.add_edge("generate", "format")
+        
+        # Add conditional edge for tool usage
+        workflow.add_conditional_edges(
+            "generate",
+            self._should_continue,
+            {
+                "tools": "tools",
+                "format": "format"
+            }
+        )
+        workflow.add_edge("tools", "generate")  # Loop back after tool use
+            
         workflow.add_edge("format", END)
         
         return workflow.compile()
+    
+    def _should_continue(self, state: VariableDocState) -> str:
+        """Decide whether to use tools or proceed to format"""
+        messages = state.get('messages', [])
+        if not messages:
+            return "format"
+        
+        last_message = messages[-1]
+        if hasattr(last_message, 'tool_calls') and last_message.tool_calls:
+            return "tools"
+        return "format"
     
     # Node implementations
     def _prepare_prompt(self, state: VariableDocState) -> VariableDocState:
@@ -71,6 +104,13 @@ class VariableDocAgent:
         prompt = self._build_user_prompt(variable)
         state['prompt'] = prompt
         
+        # Initialize messages for tool-enabled workflow
+        system_prompt = self._build_system_prompt()
+        state['messages'] = [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=prompt)
+        ]
+        
         return state
     
     def _generate(self, state: VariableDocState) -> VariableDocState:
@@ -82,17 +122,16 @@ class VariableDocAgent:
         logger.info("Calling LLM to generate documentation")
         
         try:
-            system_prompt = self._build_system_prompt()
-            user_prompt = state['prompt']
+            # Use messages for tool-enabled workflow
+            messages = state['messages']
+            response = self.llm_with_tools.invoke(messages)
+            state['messages'].append(response)
             
-            messages = [
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=user_prompt)
-            ]
-            
-            response = self.chat_model.invoke(messages)
-            state['raw_output'] = response.content.strip()
-            logger.debug(f"Generated {len(state['raw_output'])} characters")
+            # Extract content if this is final response (no tool calls)
+            if not hasattr(response, 'tool_calls') or not response.tool_calls:
+                state['raw_output'] = response.content.strip()
+                
+            logger.debug(f"Generated {len(state.get('raw_output', ''))} characters")
             
         except Exception as e:
             logger.error(f"LLM generation failed: {e}")
@@ -130,9 +169,26 @@ class VariableDocAgent:
         - Write in professional English
         - Use Markdown format
         - Include these sections: Show Name, Scope, Default Value, Type, Description, Introduced in
-        - Description should be generated based on the provided comment and usage context
+        - Description should be generated based on the provided metadata and codebase analysis
         - Be specific and avoid vague statements
         - Keep the documentation less than 300 words
+        
+        **Code Reading Tools Available**:
+        You have access to two tools to read and search the codebase:
+        1. `search_code`: Search for keywords in code files (e.g., find where variable is used)
+        2. `read_file`: Read specific file content (e.g., read implementation details)
+        
+        **About UseLocations**:
+        - The `UseLocations` field contains file paths where this variable is USED in the codebase
+        - These locations show real usage and help you understand the variable's purpose
+        - You can use `read_file` to read these files and understand how the variable is used
+        - Example: If UseLocations shows "fe/src/main/java/VariableManager.java:156", you can read that file
+        
+        **Recommended workflow**:
+        1. Review the variable metadata (name, type, default, scope, comment, UseLocations)
+        2. (Optional) Use `read_file` to check those files for usage context if UseLocations is provided and needed
+        3. (Optional) Use `search_code` to find codes which you want to explore if needed
+        4. Generate documentation based on your findings
 
         Output only the documentation content, no additional commentary. The output format should be like this:
         // document start, just to mark that the document starts and doesn't need to be included in the output.

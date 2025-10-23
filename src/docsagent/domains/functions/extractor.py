@@ -387,18 +387,18 @@ class FunctionsExtractor(ItemExtractor):
         search_results = code_search.search(all_keywords)
 
         # Aggregate results by function name
-        usage_by_func = {}
+        cases_by_func = {}
         for keyword, locations in search_results.items():
             if keyword in keyword_to_item:
                 func_name = keyword_to_item[keyword]
-                if func_name not in usage_by_func:
-                    usage_by_func[func_name] = []
-                usage_by_func[func_name].extend(locations)
+                if func_name not in cases_by_func:
+                    cases_by_func[func_name] = []
+                cases_by_func[func_name].extend(locations)
             
             # Update items with usage locations (remove duplicates)
         for item in exists_metas:
-            if item.name in usage_by_func:
-                item.useLocations = list(set(usage_by_func[item.name]))
+            if item.name in cases_by_func:
+                item.testCases = list(set(cases_by_func[item.name]))[:3]
     
     def _generate_search_keywords(self, item: FunctionItem) -> List[str]:
         keywords = []

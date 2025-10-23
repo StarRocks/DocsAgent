@@ -1,14 +1,16 @@
 """
 ConfigDocAgent: Generate English documentation for configuration items using LangGraph
 """
-from typing import TypedDict
+from typing import TypedDict, Annotated, Sequence
 from loguru import logger
 
 from langgraph.graph import StateGraph, END
+from langgraph.prebuilt import ToolNode
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage, BaseMessage
 
 from docsagent.agents.llm import get_default_chat_model
+from docsagent.agents.tools import get_code_reading_tools
 from docsagent.domains.models import ConfigItem, VALID_CATALOGS, is_valid_catalog, get_default_catalog
 
 
@@ -16,6 +18,7 @@ from docsagent.domains.models import ConfigItem, VALID_CATALOGS, is_valid_catalo
 class ConfigDocState(TypedDict):
     """State for config documentation generation workflow"""
     config: ConfigItem              # Input: configuration item
+    messages: Sequence[BaseMessage] # Message history for tool-enabled workflow
     prompt: str                     # Prepared prompt for LLM
     raw_output: str                 # Raw LLM output
     documentation: str              # Final formatted documentation
@@ -25,8 +28,10 @@ class ConfigDocAgent:
     """
     LangGraph-based agent for generating configuration documentation
     
+    Enhanced with code reading tools to understand config usage in codebase.
+    
     Workflow:
-        config -> prepare_prompt -> generate -> format -> documentation
+        config -> prepare_prompt -> generate (with tools) -> format -> documentation
     """
     
     def __init__(self, chat_model: BaseChatModel = None):
@@ -37,6 +42,11 @@ class ConfigDocAgent:
             chat_model: LangChain chat model (default: from config)
         """
         self.chat_model = chat_model or get_default_chat_model()
+        
+        # Get tools and bind to LLM
+        self.tools = get_code_reading_tools()
+        self.llm_with_tools = self.chat_model.bind_tools(self.tools)
+            
         self.workflow = self._build_workflow()
         logger.info("ConfigDocAgent initialized")
     
@@ -49,15 +59,38 @@ class ConfigDocAgent:
         workflow.add_node("generate", self._generate)
         workflow.add_node("classify", self._classify)
         workflow.add_node("format", self._format)
+        workflow.add_node("tools", ToolNode(self.tools))
         
-        # Define edges: prepare_prompt → generate → classify → format
+        # Define edges
         workflow.set_entry_point("prepare_prompt")
         workflow.add_edge("prepare_prompt", "generate")
-        workflow.add_edge("generate", "classify")
+        
+        # Add conditional edge for tool usage
+        workflow.add_conditional_edges(
+            "generate",
+            self._should_continue,
+            {
+                "tools": "tools",
+                "classify": "classify"
+            }
+        )
+        workflow.add_edge("tools", "generate")  # Loop back after tool use
+            
         workflow.add_edge("classify", "format")
         workflow.add_edge("format", END)
         
         return workflow.compile()
+    
+    def _should_continue(self, state: ConfigDocState) -> str:
+        """Decide whether to use tools or proceed to classify"""
+        messages = state.get('messages', [])
+        if not messages:
+            return "classify"
+        
+        last_message = messages[-1]
+        if hasattr(last_message, 'tool_calls') and last_message.tool_calls:
+            return "tools"
+        return "classify"
     
     # Node implementations
     def _prepare_prompt(self, state: ConfigDocState) -> ConfigDocState:
@@ -73,6 +106,13 @@ class ConfigDocAgent:
         prompt = self._build_user_prompt(config)
         state['prompt'] = prompt
         
+        # Initialize messages for tool-enabled workflow
+        system_prompt = self._build_system_prompt()
+        state['messages'] = [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=prompt)
+        ]
+        
         return state
     
     def _generate(self, state: ConfigDocState) -> ConfigDocState:
@@ -84,17 +124,16 @@ class ConfigDocAgent:
         logger.info("Calling LLM to generate documentation")
         
         try:
-            system_prompt = self._build_system_prompt()
-            user_prompt = state['prompt']
+            # Use messages for tool-enabled workflow
+            messages = state['messages']
+            response = self.llm_with_tools.invoke(messages)
+            state['messages'].append(response)
             
-            messages = [
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=user_prompt)
-            ]
-            
-            response = self.chat_model.invoke(messages)
-            state['raw_output'] = response.content.strip()
-            logger.debug(f"Generated {len(state['raw_output'])} characters")
+            # Extract content if this is final response (no tool calls)
+            if not hasattr(response, 'tool_calls') or not response.tool_calls:
+                state['raw_output'] = response.content.strip()
+                
+            logger.debug(f"Generated {len(state.get('raw_output', ''))} characters")
             
         except Exception as e:
             logger.error(f"LLM generation failed: {e}")
@@ -132,10 +171,27 @@ class ConfigDocAgent:
         - Write in professional English
         - Use Markdown format
         - Include these sections: Name, Description, Default Value, Type, Mutable, Unit
-        - Description should be generated based on the provided codebase, the input will contains comment and usage code files
+        - Description should be generated based on the provided metadata and codebase analysis
         - Be specific and avoid vague statements
         - Focus on practical usage and implications
         - Keep the documentation less than 200 words
+        
+        **Code Reading Tools Available**:
+        You have access to two tools to read and search the codebase:
+        1. `search_code`: Search for keywords in code files (e.g., find where config is used)
+        2. `read_file`: Read specific file content (e.g., read implementation details)
+        
+        **About UseLocations**:
+        - The `UseLocations` field contains file paths where this configuration is USED in the codebase
+        - These locations show real usage and help you understand the config's purpose
+        - You can use `read_file` to read these files and understand the context
+        - Example: If UseLocations shows "fe/src/main/java/ConfigManager.java:42", you can read that file
+        
+        **Recommended workflow**:
+        1. Review the config metadata (name, type, default, comment, UseLocations)
+        2. (Optional) Use `read_file` to check those files for usage context if UseLocations is provided and needed
+        3. (Optional) Use `search_code` to find codes which you want to explore if needed
+        4. Generate documentation based on your findings
 
         Output only the documentation content, no additional commentary. The output format should be like this:
         // document start, just to marked the document is start and doesn't need to be included in the output.
