@@ -5,6 +5,7 @@ LangGraph Tool wrappers for documentation agents
 Simplified to 2 core tools:
 1. read_file - Read file content with optional line range
 2. search_code - Search keywords in code files with context
+3. execute_sql - Execute SQL queries against StarRocks (optional)
 """
 
 from typing import List, Optional
@@ -212,3 +213,81 @@ def get_code_reading_tools() -> List:
         search_code,  # Put search first - most commonly used for discovery
         read_file     # Then read for detailed content
     ]
+
+
+def get_starrocks_tools(
+    test_connection: bool = True
+):
+    """
+    Get StarRocks database tools for querying runtime information (READ-ONLY)
+    
+    Only returns tools if connection test succeeds (when test_connection=True).
+    This prevents registering tools that will fail at runtime.
+    
+    NOTE: Only SELECT queries are supported for safety.
+    
+    Args:
+        host: StarRocks host (if None, will use config)
+        port: StarRocks port (if None, will use config)
+        user: Database user (if None, will use config)
+        password: Database password (if None, will use config)
+        test_connection: Whether to test connection before returning tools
+    
+    Returns:
+        List with execute_sql tool if connection succeeds, empty list otherwise
+        
+    Usage:
+        >>> from docsagent.agents.tools import get_starrocks_tools
+        >>> # Auto-detect from config and test connection
+        >>> tools = get_starrocks_tools()
+        >>> # Skip connection test (not recommended)
+        >>> tools = get_starrocks_tools(test_connection=False)
+    """
+    from docsagent.tools.sr_client import (
+        execute_sql,
+        test_connection as test_sr_connection
+    )
+    
+    # Test connection before registering tools
+    if test_connection:
+        from docsagent.config import config
+        if not test_sr_connection(config.SR_HOST, config.SR_PORT, config.SR_USER, config.SR_PASSWORD):
+            logger.warning(
+                f"StarRocks connection test failed ({config.SR_HOST}:{config.SR_PORT}). "
+                "StarRocks tools will not be registered."
+            )
+            return []
+
+        logger.info(f"StarRocks connection test succeeded ({config.SR_HOST}:{config.SR_PORT})")
+    
+    return [execute_sql]
+
+
+def get_all_tools(include_starrocks: bool = False, test_sr_connection: bool = True):
+    """
+    Get all available tools for agents
+    
+    Args:
+        include_starrocks: Whether to include StarRocks database tools
+        test_sr_connection: Whether to test StarRocks connection before including tools
+        
+    Returns:
+        List of all tools (only includes StarRocks tools if connection succeeds)
+        
+    Usage:
+        >>> from docsagent.agents.tools import get_all_tools
+        >>> # Include StarRocks tools if connection works
+        >>> tools = get_all_tools(include_starrocks=True)
+        >>> # Force include even if connection fails (not recommended)
+        >>> tools = get_all_tools(include_starrocks=True, test_sr_connection=False)
+    """
+    tools = get_code_reading_tools()
+    
+    if include_starrocks:
+        sr_tools = get_starrocks_tools(test_connection=test_sr_connection)
+        if sr_tools:
+            tools.extend(sr_tools)
+        elif test_sr_connection:
+            logger.info("Continuing without StarRocks tools")
+    
+    return tools

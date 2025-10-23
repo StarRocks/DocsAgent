@@ -186,8 +186,8 @@ class VariableDocAgent:
         
         **Recommended workflow**:
         1. Review the variable metadata (name, type, default, scope, comment, UseLocations)
-        2. (Optional) Use `read_file` to check those files for usage context if UseLocations is provided and needed
-        3. (Optional) Use `search_code` to find codes which you want to explore if needed
+        2. **OPTIONAL**: Use `read_file` to check those files for usage context if UseLocations is provided and needed
+        3. **OPTIONAL**: Use `search_code` to find codes which you want to explore if needed
         4. Generate documentation based on your findings
 
         Output only the documentation content, no additional commentary. The output format should be like this:
