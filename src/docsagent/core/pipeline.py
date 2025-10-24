@@ -95,8 +95,8 @@ class DocGenerationPipeline(Generic[T]):
             doc_generator: Doc generator (optional if items have docs)
             translation_agent: Translation service (default: create new)
             persister: File persister (optional, uses simple default)
-            item_type_name: Name for logging (e.g., "config", "function")
             git_persister_factory: Factory function to create GitPersister (optional)
+            item_type_name: Name for logging (e.g., "config", "function")
         """
         self.extractor = extractor
         self.doc_generator = doc_generator
