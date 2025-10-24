@@ -420,9 +420,10 @@ class FunctionsExtractor(ItemExtractor):
             items = []
             for root, dirs, files in os.walk(self.meta_path):
                 for file in files:
-                    with open(os.path.join(root, file), 'r', encoding='utf-8') as f:
-                        data = json.load(f)
-                    items.append(self._item_from_dict(data))
+                    if file.endswith('.meta'):
+                        with open(os.path.join(root, file), 'r', encoding='utf-8') as f:
+                            data = json.load(f)
+                        items.append(self._item_from_dict(data))
             return items
             
         except json.JSONDecodeError as e:

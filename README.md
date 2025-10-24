@@ -161,43 +161,9 @@ python -m docsagent.main -g -t fe_config -f -l 10
 
 For detailed usage, see [CLI_USAGE.md](CLI_USAGE.md)
 
+**Important**: Always use `python -m docsagent.main` (without `.py` extension) to run the tool.
+
 ### Programming Interface
-
-## 🚀 快速开始
-
-### 环境要求
-
-- Python 3.10+
-- Poetry (包管理工具)
-- StarRocks 源码（用于提取元信息）
-
-### 安装
-
-```bash
-# 克隆仓库
-git clone https://github.com/Seaven/DocsAgent.git
-cd DocsAgent
-
-# 安装依赖
-poetry install
-
-# 激活虚拟环境
-poetry shell
-```
-
-### 配置
-
-复制并编辑配置文件：
-
-```bash
-cp conf/example.conf conf/agent.conf
-```
-
-主要配置项：
-
-```ini
-# StarRocks 源码路径
-STARROCKS_HOME=/path/to/starrocks
 
 # LLM configuration
 LLM_MODEL=openai:gpt-4

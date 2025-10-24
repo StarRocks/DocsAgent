@@ -193,13 +193,13 @@ class VariablesExtractor(ItemExtractor):
         # Load existing metadata and merge
         exists_metas = {}
         for meta in self.load_meta():
-            exists_metas[meta.name] = meta
+            exists_metas[meta.show] = meta
 
         for meta in all_items:
-            if meta.name in exists_metas:
-                meta.useLocations = exists_metas[meta.name].useLocations
-                meta.documents = exists_metas[meta.name].documents
-                meta.version = exists_metas[meta.name].version
+            if meta.show in exists_metas:
+                meta.useLocations = exists_metas[meta.show].useLocations
+                meta.documents = exists_metas[meta.show].documents
+                meta.version = exists_metas[meta.show].version
 
         show_invisible = kwargs.get("show_invisible_variables", False)
 

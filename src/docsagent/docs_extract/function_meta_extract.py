@@ -51,6 +51,18 @@ class FunctionMetaExtract:
     SUPPORTED_LANGS = ['en', 'ja', 'zh']
     PRIMARY_LANG = 'en'  # Use English as primary source for metadata
     
+    @staticmethod
+    def _remove_html_comments(content: str) -> str:
+        """Remove HTML comments from markdown content
+        
+        Args:
+            content: Raw markdown content
+            
+        Returns:
+            Content with HTML comments removed
+        """
+        return re.sub(r'<!--.*?-->', '', content, flags=re.DOTALL)
+    
     def __init__(self):
         """Initialize the extractor."""
         # Default paths
@@ -216,6 +228,9 @@ class FunctionMetaExtract:
         # Read file content
         content = file_path.read_text(encoding='utf-8')
         
+        # Remove HTML comments
+        content = self._remove_html_comments(content)
+        
         # Extract function name from filename (without .md extension)
         func_name = file_path.stem
         
@@ -374,10 +389,11 @@ class FunctionMetaExtract:
         # with output_path.open('w', encoding='utf-8') as f:
         #     json.dump(data, f, ensure_ascii=False, indent=2)
         
+        meta_dir = Path(meta_dir)
         meta_dir.mkdir(parents=True, exist_ok=True)
         
         for func in functions:
-            func_file = meta_dir / f"{func.name}.json"
+            func_file = meta_dir / f"{func.name}.meta"
             with func_file.open('w', encoding='utf-8') as f:
                 json.dump(func.to_dict(), f, ensure_ascii=False, indent=2)
         

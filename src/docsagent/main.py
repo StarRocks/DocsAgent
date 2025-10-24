@@ -68,6 +68,12 @@ Examples:
     )
     
     parser.add_argument(
+        '-d', '--diff',
+        action='store_true',
+        help='Run without generating documentation, to print diff meta'
+    )
+    
+    parser.add_argument(
         '-g', '--generate',
         action='store_true',
         help='Generate documentation'
@@ -94,9 +100,9 @@ Examples:
     )
     
     parser.add_argument(
-        '-i', '--ignore_miss_usage',
+        '-i', '--include_miss_usage',
         action='store_true',
-        help='Ignore missing usage information'
+        help='Include missing usage information'
     )
     
     parser.add_argument(
@@ -136,8 +142,8 @@ Examples:
     init_logger(log_dir=config.LOG_DIR, log_level=config.LOG_LEVEL)
     
     # Check if at least one action is specified
-    if not args.extract and not args.generate:
-        logger.warning("No action specified. Use -e to extract or -g to generate.")
+    if not args.extract and not args.generate and not args.diff:
+        logger.warning("No action specified. Use -e to extract or -g to generate or -d to diff.")
         parser.print_help()
         sys.exit(1)
     
@@ -146,7 +152,7 @@ Examples:
         if args.extract:
             extract_meta(args)
         
-        if args.generate:
+        if args.generate or args.diff:
             generate_docs(args)
     except Exception as e:
         logger.exception(f"Execution failed: {e}")
@@ -202,7 +208,9 @@ def generate_docs(args):
     # Log configuration
     logger.info(f"Configuration:")
     logger.info(f"  Type: {args.type}")
+    logger.info(f"  Diff Stats: {args.diff}")
     logger.info(f"  Force search code: {args.force_search_code}")
+    logger.info(f"  Include missing usage: {args.include_miss_usage}")
     logger.info(f"  Limit: {args.limit or 'None'}")
     logger.info(f"  Git commit: {args.git_ci}")
     logger.info(f"  Git PR: {args.git_pr}")
@@ -229,6 +237,9 @@ def generate_docs(args):
         result = pipeline.run(
             output_dir=config.DOCS_OUTPUT_DIR,
             target_langs=config.TARGET_LANGS,
+            only_diff=args.diff,
+            force_search_code=args.force_search_code,
+            ignore_miss_usage=not args.include_miss_usage,
             auto_commit=args.git_ci,
             create_pr=args.git_pr,
             limit=args.limit

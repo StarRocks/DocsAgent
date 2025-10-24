@@ -48,6 +48,18 @@ class ConfigMetaExtract:
     SUPPORTED_LANGS = ['en', 'ja', 'zh']
     PRIMARY_LANG = 'en'  # Use English as primary source for metadata
     
+    @staticmethod
+    def _remove_html_comments(content: str) -> str:
+        """Remove HTML comments from markdown content
+        
+        Args:
+            content: Raw markdown content
+            
+        Returns:
+            Content with HTML comments removed
+        """
+        return re.sub(r'<!--.*?-->', '', content, flags=re.DOTALL)
+    
     def __init__(self):
         """Initialize the extractor."""
         # Default paths
@@ -140,6 +152,9 @@ class ConfigMetaExtract:
         
         logger.info(f"Extracting {scope} configs from {md_file} (lang: {lang})")
         content = md_path.read_text(encoding='utf-8')
+        
+        # Remove HTML comments
+        content = self._remove_html_comments(content)
         
         # Find config parameters section
         # For FE: "Understand FE parameters" / "FE 参数描述"

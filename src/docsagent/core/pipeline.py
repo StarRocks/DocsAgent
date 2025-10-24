@@ -115,6 +115,7 @@ class DocGenerationPipeline(Generic[T]):
         target_langs: List[str] = None,
         force_search_code: bool = False,
         ignore_miss_usage: bool = True,
+        only_diff: bool = False,
         limit: Optional[int] = None,
         auto_commit: bool = False,
         create_pr: bool = False,
@@ -152,11 +153,13 @@ class DocGenerationPipeline(Generic[T]):
         logger.info(f"Starting Documentation Generation Pipeline")
         logger.info(f"Item type: {self.item_type_name}")
         logger.info(f"Target languages: {', '.join(target_langs)}")
+        if limit:
+            logger.info(f"Limit: {limit} {self.item_type_name}s per run (for items needing processing)")
         logger.info("=" * 60)
         
         # Step 1: Extract items
         logger.info(f"[Step 1/6] Extracting {self.item_type_name}s...")
-        items = self.extractor.extract(limit, force_search_code, ignore_miss_usage, **kwargs)
+        items = self.extractor.extract(force_search_code, ignore_miss_usage, **kwargs)
         logger.info(f"✓ Extracted {len(items)} {self.item_type_name}s")
         
         # Step 2: Analyze and group
@@ -165,6 +168,32 @@ class DocGenerationPipeline(Generic[T]):
         logger.info(f"  • Has Chinese: {len(groups['has_zh'])} {self.item_type_name}s")
         logger.info(f"  • Has English only: {len(groups['has_en_only'])} {self.item_type_name}s")
         logger.info(f"  • Has neither: {len(groups['has_neither'])} {self.item_type_name}s")
+        
+        if only_diff:
+            logger.info("Only diff requested, skipping generation and translation")
+            return self._build_stats(items, groups, target_langs)
+
+        # Apply limit to items that need processing
+        if limit:
+            # Calculate items needing processing
+            needs_processing = groups['has_zh'] + groups['has_en_only'] + groups['has_neither']
+            total_needs_processing = len(needs_processing)
+            
+            if limit < total_needs_processing:
+                logger.info(f"⚠ Applying limit: processing {limit}/{total_needs_processing} {self.item_type_name}s that need processing")
+                
+                # Take first 'limit' items that need processing
+                limited_items = needs_processing[:limit]
+                limited_names = {item.name for item in limited_items}
+                
+                # Update groups to only include limited items
+                groups['has_zh'] = [item for item in groups['has_zh'] if item.name in limited_names]
+                groups['has_en_only'] = [item for item in groups['has_en_only'] if item.name in limited_names]
+                groups['has_neither'] = [item for item in groups['has_neither'] if item.name in limited_names]
+                
+                logger.info(f"  • Limited - Has Chinese: {len(groups['has_zh'])} {self.item_type_name}s")
+                logger.info(f"  • Limited - Has English only: {len(groups['has_en_only'])} {self.item_type_name}s")
+                logger.info(f"  • Limited - Has neither: {len(groups['has_neither'])} {self.item_type_name}s")
         
         # Step 3: Generate for items without docs
         if groups['has_neither']:

@@ -183,7 +183,6 @@ class ItemExtractor(Protocol[T]):
     
     def extract(
         self,
-        limit: Optional[int] = None,
         force_search_code: bool = False,
         ignore_miss_usage: bool = True,
         **kwargs
@@ -213,7 +212,7 @@ class ItemExtractor(Protocol[T]):
         items = self._extract_all_items(**kwargs)
         
         # Filter items without usage (if configured)
-        if not ignore_miss_usage:
+        if ignore_miss_usage:
             original_count = len(items)
             items = [
                 item for item in items 
@@ -222,11 +221,6 @@ class ItemExtractor(Protocol[T]):
             filtered = original_count - len(items)
             if filtered > 0:
                 logger.warning(f"Filtered {filtered} items without usage")
-        
-        # Apply limit
-        if limit is not None:
-            items = items[:limit]
-            logger.info(f"Limited to {limit} items")
         
         # Log statistics
         stats = self.get_statistics(items) if hasattr(self, 'get_statistics') else {}

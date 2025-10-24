@@ -74,7 +74,7 @@ class AppConfig(BaseSettings):
             return [lang.strip() for lang in v.split(',')]
         return v
     
-    @field_validator('FORCE_RESEARCH_CODE', mode='before')
+    @field_validator('MUST_USE_SR_CLIENT', mode='before')
     @classmethod
     def parse_bool(cls, v):
         """Parse boolean from string"""
