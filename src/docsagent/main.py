@@ -113,13 +113,13 @@ Examples:
     )
     
     parser.add_argument(
-        '--git-ci',
+        '--ci',
         action='store_true',
         help='Enable commit to git'
     )
 
     parser.add_argument(
-        '--git-pr',
+        '--pr',
         action='store_true',
         help='Enable create PRs to remote git repository'
     )
@@ -199,11 +199,11 @@ def extract_meta(args):
 def generate_docs(args):
     """Generate documentation based on type"""
     logger.info("=" * 60)
-    logger.info(f"Generating {args.type.upper()} docs | Limit: {args.limit or 'None'} | Git: {'PR' if args.git_pr else 'Commit' if args.git_ci else 'No'}")
+    logger.info(f"Generating {args.type.upper()} docs | Limit: {args.limit or 'None'} | Git: {'PR' if args.pr else 'Commit' if args.ci else 'No'}")
     logger.info("=" * 60)
     
-    if args.git_pr:
-        args.git_ci = True  # Ensure commit is enabled if PR is requested
+    if args.pr:
+        args.ci = True  # Ensure commit is enabled if PR is requested
     
     try:
         # Create pipeline based on type
@@ -228,8 +228,8 @@ def generate_docs(args):
             only_diff=args.diff,
             force_search_code=args.force_search_code,
             ignore_miss_usage=not args.include_miss_usage,
-            auto_commit=args.git_ci,
-            create_pr=args.git_pr,
+            auto_commit=args.ci,
+            create_pr=args.pr,
             limit=args.limit
         )
         

@@ -16,21 +16,25 @@ VALID_CATALOGS = [
     'User, role, and privilege',
     'Query engine',
     'Loading and unloading',
+    'Statistic report',
     'Storage',
     'Shared-data',
     'Data Lake',
+    'Loading',
     'Other'
 ]
 
 CATALOGS_LANGS = {
-    'Logging': {'en': 'Logging', 'zh': '日志记录', 'ja': 'ロギング'},
+    'Logging': {'en': 'Logging', 'zh': '日志', 'ja': 'ロギング'},
     'Server': {'en': 'Server', 'zh': '服务器', 'ja': 'サーバー'},
-    'Metadata and cluster management': {'en': 'Metadata and cluster management', 'zh': '元数据和集群管理', 'ja': 'メタデータとクラスタ管理'},
-    'User, role, and privilege': {'en': 'User, role, and privilege', 'zh': '用户、角色和权限', 'ja': 'ユーザー、役割、特権'},
+    'Metadata and cluster management': {'en': 'Metadata and cluster management', 'zh': '元数据与集群管理', 'ja': 'メタデータとクラスタ管理'},
+    'User, role, and privilege': {'en': 'User, role, and privilege', 'zh': '用户，角色及权限', 'ja': 'ユーザー、役割、特権'},
     'Query engine': {'en': 'Query engine', 'zh': '查询引擎', 'ja': 'クエリエンジン'},
-    'Loading and unloading': {'en': 'Loading and unloading', 'zh': '加载和卸载', 'ja': 'ロードとアンロード'},
+    'Loading': {'en': 'Loading', 'zh': '导入', 'ja': 'ロード'},
+    'Loading and unloading': {'en': 'Loading and unloading', 'zh': '导入导出', 'ja': 'ロードとアンロード'},
+    'Statistic report': {'en': 'Statistic report', 'zh': '统计信息', 'ja': '統計レポート'},
     'Storage': {'en': 'Storage', 'zh': '存储', 'ja': 'ストレージ'},
-    'Shared-data': {'en': 'Shared-data', 'zh': '共享数据', 'ja': '共有データ'},
+    'Shared-data': {'en': 'Shared-data', 'zh': '存算分离', 'ja': '共有データ'},
     'Data Lake': {'en': 'Data Lake', 'zh': '数据湖', 'ja': 'データレイク'},
     'Other': {'en': 'Other', 'zh': '其他', 'ja': 'その他'}, 
 }

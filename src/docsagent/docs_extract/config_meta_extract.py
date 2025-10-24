@@ -286,6 +286,9 @@ class ConfigMetaExtract:
         if unit and unit not in ['-', '']:
             comment = f"{description} Unit: {unit}" if description else f"Unit: {unit}"
         
+        # Reconstruct the full document with ##### heading
+        full_doc = f"##### {config_name}\n\n{block.strip()}"
+        
         return ConfigItem(
             name=config_name,
             type=data_type,
@@ -294,7 +297,7 @@ class ConfigMetaExtract:
             isMutable=is_mutable,
             scope=scope,
             define="",  # Will be filled from source code parsing
-            documents={lang: block.strip()},
+            documents={lang: full_doc},
             catalog=catalog,
             version=[introduced] if introduced else [],
             useLocations=[]

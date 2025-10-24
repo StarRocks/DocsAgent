@@ -319,21 +319,45 @@ Updated {len(changed_files)} file(s):
             return None
         
         try:
-            # GitHub API endpoint
-            api_url = f"https://api.github.com/repos/{github_repo}/pulls"
-            
-            # Prepare request
+            # Get the authenticated user's login to construct proper head reference
+            user_api_url = "https://api.github.com/user"
             headers = {
                 "Authorization": f"token {self.github_token}",
                 "Accept": "application/vnd.github.v3+json"
             }
             
+            user_response = requests.get(user_api_url, headers=headers)
+            user_response.raise_for_status()
+            user_login = user_response.json().get("login")
+            
+            # For cross-repository PRs (from fork), head format should be "username:branch"
+            # For same-repository PRs, just use "branch"
+            # Check if current repo is a fork by comparing with target repo
+            try:
+                origin_url = self.repo.remote('origin').url
+                if user_login and user_login.lower() not in github_repo.lower().split('/')[0].lower():
+                    # This is likely a fork, use "username:branch" format
+                    head_ref = f"{user_login}:{head_branch}"
+                    logger.debug(f"Using cross-fork head reference: {head_ref}")
+                else:
+                    # Same repository, just use branch name
+                    head_ref = head_branch
+                    logger.debug(f"Using same-repo head reference: {head_ref}")
+            except Exception as e:
+                logger.warning(f"Could not determine fork status, using username:branch format: {e}")
+                head_ref = f"{user_login}:{head_branch}" if user_login else head_branch
+            
+            # GitHub API endpoint
+            api_url = f"https://api.github.com/repos/{github_repo}/pulls"
+            
             data = {
                 "title": title,
                 "body": body,
-                "head": head_branch,
+                "head": head_ref,
                 "base": base
             }
+            
+            logger.debug(f"Creating PR with data: {data}")
             
             # Create PR
             response = requests.post(api_url, json=data, headers=headers)

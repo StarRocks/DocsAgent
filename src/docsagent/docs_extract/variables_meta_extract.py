@@ -222,6 +222,9 @@ class VariablesMetaExtract:
         if unit:
             comment = f"{description} Unit: {unit}" if description else f"Unit: {unit}"
         
+        # Reconstruct the full document with ### heading
+        full_doc = f"### {block.strip()}"
+        
         return VariableItem(
             name=name,
             show=name,
@@ -230,7 +233,7 @@ class VariablesMetaExtract:
             comment=comment,
             invisible=False,
             scope=scope,
-            documents={lang: block.strip()},
+            documents={lang: full_doc},
             version=[introduced] if introduced else [],
             useLocations=[]
         )
