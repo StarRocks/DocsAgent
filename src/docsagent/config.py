@@ -54,6 +54,9 @@ class AppConfig(BaseSettings):
     SR_PASSWORD: str = ''
     SR_DATABASE: str = ''
     
+    MUST_USE_SR_CLIENT: bool = False  # Whether StarRocks client is required
+    
+    
     @property
     def DOCS_MODULE_DIR(self) -> Path:
         """Computed property for docs module directory"""

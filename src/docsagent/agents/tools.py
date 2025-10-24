@@ -252,6 +252,13 @@ def get_starrocks_tools(
     if test_connection:
         from docsagent.config import config
         if not test_sr_connection(config.SR_HOST, config.SR_PORT, config.SR_USER, config.SR_PASSWORD):
+            if config.MUST_USE_SR_CLIENT:
+                logger.error(
+                    f"StarRocks connection test failed ({config.SR_HOST}:{config.SR_PORT}). "
+                    "StarRocks tools are required but cannot connect."
+                )
+                exit(-1)
+
             logger.warning(
                 f"StarRocks connection test failed ({config.SR_HOST}:{config.SR_PORT}). "
                 "StarRocks tools will not be registered."
