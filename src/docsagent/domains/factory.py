@@ -42,7 +42,7 @@ def create_fe_config_pipeline() -> DocGenerationPipeline[ConfigItem]:
     Note:
         Use pipeline.run(auto_commit=True, create_pr=True) to control git operations.
     """
-    logger.info("Creating FE Config pipeline...")
+    logger.debug("Creating FE Config pipeline...")
     
     logger.debug(f"Config: STARROCKS_HOME={config.STARROCKS_HOME}")
     logger.debug(f"        DOCS_MODULE_DIR={config.DOCS_MODULE_DIR}")
@@ -71,7 +71,7 @@ def create_fe_config_pipeline() -> DocGenerationPipeline[ConfigItem]:
         item_type_name="FE Config",
     )
     
-    logger.info("Pipeline created")
+    logger.debug("✓ Pipeline created")
     return pipeline
 
 
@@ -85,7 +85,7 @@ def create_be_config_pipeline():
     Note:
         Use pipeline.run(auto_commit=True, create_pr=True) to control git operations.
     """
-    logger.info("Creating BE Config pipeline...")
+    logger.debug("Creating BE Config pipeline...")
     
     logger.debug(f"Config: STARROCKS_HOME={config.STARROCKS_HOME}")
     logger.debug(f"        DOCS_MODULE_DIR={config.DOCS_MODULE_DIR}")
@@ -114,7 +114,7 @@ def create_be_config_pipeline():
         item_type_name="BE Config",
     )
     
-    logger.info("Pipeline created")
+    logger.debug("✓ Pipeline created")
     return pipeline
 
 
@@ -128,7 +128,7 @@ def create_variable_pipeline():
     Note:
         Use pipeline.run(auto_commit=True, create_pr=True) to control git operations.
     """
-    logger.info("Creating Variable pipeline...")
+    logger.debug("Creating Variable pipeline...")
     
     logger.debug(f"Config: STARROCKS_HOME={config.STARROCKS_HOME}")
     logger.debug(f"        DOCS_MODULE_DIR={config.DOCS_MODULE_DIR}")
@@ -157,7 +157,7 @@ def create_variable_pipeline():
         item_type_name="Variables",
     )
     
-    logger.info("Pipeline created")
+    logger.debug("✓ Pipeline created")
     return pipeline
 
 def create_function_pipeline():
@@ -170,7 +170,7 @@ def create_function_pipeline():
     Note:
         Use pipeline.run(auto_commit=True, create_pr=True) to control git operations.
     """
-    logger.info("Creating Function pipeline...")
+    logger.debug("Creating Function pipeline...")
     logger.debug(f"Config: STARROCKS_HOME={config.STARROCKS_HOME}")
     logger.debug(f"        DOCS_MODULE_DIR={config.DOCS_MODULE_DIR}")
     logger.debug(f"        META_DIR={config.META_DIR}")
@@ -198,5 +198,5 @@ def create_function_pipeline():
         item_type_name="Functions",
     )
     
-    logger.info("Pipeline created")
+    logger.debug("✓ Pipeline created")
     return pipeline

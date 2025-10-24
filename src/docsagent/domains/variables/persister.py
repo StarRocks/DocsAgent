@@ -38,7 +38,7 @@ class VariablesPersister(DocPersister):
                     target_docs[lang] += var.documents[lang] + "\n\n"
             self._apply_template_and_save(target_docs, lang, output_dir)
         
-        logger.info(f"Saved docs for {len(target_langs)} languages")
+        logger.debug(f"Saved docs for {len(target_langs)} languages")
     
     def _apply_template_and_save(self, target_docs: dict, lang: str, output_dir: str) -> None:
         """Apply template ($content substitution) and save to file"""

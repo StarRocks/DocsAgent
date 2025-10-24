@@ -42,7 +42,7 @@ class FEConfigPersister(DocPersister):
             
             self._apply_template_and_save(target_docs, lang, output_dir)
         
-        logger.info(f"Saved docs for {len(target_langs)} languages")
+        logger.debug(f"Saved docs for {len(target_langs)} languages")
     
     def _organize_by_catalog(self, configs: List[ConfigItem]) -> dict:
         """Group configs by catalog"""

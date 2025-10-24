@@ -161,7 +161,7 @@ Examples:
 def extract_meta(args):
     """Extract metadata from documentation files"""
     logger.info("=" * 60)
-    logger.info(f"EXTRACTING METADATA: {args.type.upper()}")
+    logger.info(f"Extracting {args.type.upper()} metadata")
     logger.info("=" * 60)
     
     try:
@@ -199,27 +199,15 @@ def extract_meta(args):
 def generate_docs(args):
     """Generate documentation based on type"""
     logger.info("=" * 60)
-    logger.info(f"GENERATING DOCUMENTATION: {args.type.upper()}")
+    logger.info(f"Generating {args.type.upper()} docs | Limit: {args.limit or 'None'} | Git: {'PR' if args.git_pr else 'Commit' if args.git_ci else 'No'}")
     logger.info("=" * 60)
     
     if args.git_pr:
         args.git_ci = True  # Ensure commit is enabled if PR is requested
     
-    # Log configuration
-    logger.info(f"Configuration:")
-    logger.info(f"  Type: {args.type}")
-    logger.info(f"  Diff Stats: {args.diff}")
-    logger.info(f"  Force search code: {args.force_search_code}")
-    logger.info(f"  Include missing usage: {args.include_miss_usage}")
-    logger.info(f"  Limit: {args.limit or 'None'}")
-    logger.info(f"  Git commit: {args.git_ci}")
-    logger.info(f"  Git PR: {args.git_pr}")
-    logger.info(f"  Target languages: {config.TARGET_LANGS}")
-    logger.info(f"  Output directory: {config.DOCS_OUTPUT_DIR}")
-    
     try:
         # Create pipeline based on type
-        logger.info("Creating pipeline...")
+        logger.debug(f"Creating pipeline for {args.type}...")
         if args.type == 'fe_config':
             pipeline = factory.create_fe_config_pipeline()
         elif args.type == 'be_config':

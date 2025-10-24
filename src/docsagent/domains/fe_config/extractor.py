@@ -129,7 +129,7 @@ class FEConfigExtractor(ItemExtractor):
                 all_items.extend(config_items)
                 
                 if config_items:
-                    logger.info(f"Found {len(config_items)} config items in {file_path}")
+                    logger.debug(f"Found {len(config_items)} config items in {file_path}")
                 else:
                     logger.debug(f"No config items found in {file_path}")
             except Exception as e:
@@ -158,7 +158,7 @@ class FEConfigExtractor(ItemExtractor):
                 if item.name in search_results:
                     item.useLocations = search_results[item.name]
 
-        logger.info(f"Total config items found: {len(all_items)}")
+        logger.debug(f"Total config items found: {len(all_items)}")
         return all_items
     
     def get_statistics(self, items: List[ConfigItem]) -> dict:

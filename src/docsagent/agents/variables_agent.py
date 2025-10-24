@@ -48,7 +48,7 @@ class VariableDocAgent:
         self.llm_with_tools = self.chat_model.bind_tools(self.tools)
             
         self.workflow = self._build_workflow()
-        logger.info("VariableDocAgent initialized")
+        logger.debug("VariableDocAgent initialized")
     
     def _build_workflow(self) -> StateGraph:
         """Build the LangGraph workflow"""
@@ -98,7 +98,7 @@ class VariableDocAgent:
         Constructs a detailed prompt including variable metadata
         """
         variable = state['variable']
-        logger.info(f"Preparing prompt for variable: {variable.name}")
+        logger.debug(f"Preparing prompt for variable: {variable.name}")
         
         # Build user prompt with config information
         prompt = self._build_user_prompt(variable)
@@ -119,7 +119,7 @@ class VariableDocAgent:
         
         Invokes the chat model with system and user prompts
         """
-        logger.info("Calling LLM to generate documentation")
+        logger.debug("Calling LLM to generate documentation")
         
         try:
             # Use messages for tool-enabled workflow
@@ -146,7 +146,7 @@ class VariableDocAgent:
         
         Ensures consistent formatting and structure
         """
-        logger.info("Formatting documentation")
+        logger.debug("Formatting documentation")
         
         raw = state['raw_output']
         variable = state['variable']
@@ -283,7 +283,7 @@ class VariableDocAgent:
             ... )
             >>> doc = agent.generate(variable)
         """
-        logger.info(f"Generating documentation for variable: {variable.name}")
+        logger.debug(f"Generating documentation for variable: {variable.name}")
         
         # Initialize state
         initial_state = VariableDocState(
@@ -296,6 +296,6 @@ class VariableDocAgent:
         # Run workflow
         final_state = self.workflow.invoke(initial_state)
         
-        logger.info(f"Documentation generated ({len(final_state['documentation'])} chars)")
+        logger.debug(f"Documentation generated ({len(final_state['documentation'])} chars)")
         
         return final_state['documentation']

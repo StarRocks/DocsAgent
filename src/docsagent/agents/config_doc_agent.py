@@ -48,7 +48,7 @@ class ConfigDocAgent:
         self.llm_with_tools = self.chat_model.bind_tools(self.tools)
             
         self.workflow = self._build_workflow()
-        logger.info("ConfigDocAgent initialized")
+        logger.debug("ConfigDocAgent initialized")
     
     def _build_workflow(self) -> StateGraph:
         """Build the LangGraph workflow"""
@@ -100,7 +100,7 @@ class ConfigDocAgent:
         Constructs a detailed prompt including config metadata
         """
         config = state['config']
-        logger.info(f"Preparing prompt for config: {config.name}")
+        logger.debug(f"Preparing prompt for config: {config.name}")
         
         # Build user prompt with config information
         prompt = self._build_user_prompt(config)
@@ -121,7 +121,7 @@ class ConfigDocAgent:
         
         Invokes the chat model with system and user prompts
         """
-        logger.info("Calling LLM to generate documentation")
+        logger.debug("Calling LLM to generate documentation")
         
         try:
             # Use messages for tool-enabled workflow
@@ -148,7 +148,7 @@ class ConfigDocAgent:
         
         Ensures consistent formatting and structure
         """
-        logger.info("Formatting documentation")
+        logger.debug("Formatting documentation")
         
         raw = state['raw_output']
         config = state['config']
@@ -318,10 +318,10 @@ class ConfigDocAgent:
         
         # Skip if already classified
         if config.catalog is not None and is_valid_catalog(config.catalog):
-            logger.info(f"Config {config.name} already classified as: {config.catalog}")
+            logger.debug(f"Config {config.name} already classified as: {config.catalog}")
             return state
         
-        logger.info(f"Classifying config: {config.name}")
+        logger.debug(f"Classifying config: {config.name}")
         
         try:
             system_prompt = self._build_classify_system_prompt()
@@ -342,7 +342,7 @@ class ConfigDocAgent:
 
             # Update config
             config.catalog = catalog
-            logger.info(f"Classified {config.name} as: {catalog}")
+            logger.debug(f"Classified {config.name} as: {catalog}")
             
         except Exception as e:
             logger.error(f"Classification failed: {e}, using default catalog")
@@ -375,7 +375,7 @@ class ConfigDocAgent:
             ... )
             >>> doc = agent.generate(config)
         """
-        logger.info(f"Generating documentation for: {config.name}")
+        logger.debug(f"Generating documentation for: {config.name}")
         
         # Initialize state
         initial_state = ConfigDocState(
@@ -388,6 +388,6 @@ class ConfigDocAgent:
         # Run workflow
         final_state = self.workflow.invoke(initial_state)
         
-        logger.info(f"Documentation generated ({len(final_state['documentation'])} chars)")
+        logger.debug(f"Documentation generated ({len(final_state['documentation'])} chars)")
         
         return final_state['documentation']

@@ -184,7 +184,7 @@ class VariablesExtractor(ItemExtractor):
                 all_items.extend(var_items)
                 
                 if var_items:
-                    logger.info(f"Found {len(var_items)} variable items in {file_path}")
+                    logger.debug(f"Found {len(var_items)} variable items in {file_path}")
                 else:
                     logger.debug(f"No variable items found in {file_path}")
             except Exception as e:
@@ -208,7 +208,7 @@ class VariablesExtractor(ItemExtractor):
             
         # Search for code usages if configured
         if 'force_search_code' in kwargs and kwargs['force_search_code']:
-            logger.info("Searching for variable usage locations...")
+            logger.debug("Searching for variable usage locations...")
             
             # Build keyword mapping: keyword -> variable name
             keyword_to_item = {}
@@ -220,7 +220,7 @@ class VariablesExtractor(ItemExtractor):
                     keyword_to_item[keyword] = item.name
                     all_keywords.append(keyword)
             
-            logger.info(f"Searching for {len(all_keywords)} keywords across {len(all_items)} variables...")
+            logger.debug(f"Searching for {len(all_keywords)} keywords across {len(all_items)} variables...")
             
             # Search for all keywords
             code_search = CodeFileSearch(self.code_paths, file_filter=lambda f: 'variable' not in f.name.lower() and f.suffix in ['.java', '.h', '.cpp', '.hpp'])
@@ -240,7 +240,7 @@ class VariablesExtractor(ItemExtractor):
                 if item.name in usage_by_var:
                     item.useLocations = list(set(usage_by_var[item.name]))
 
-        logger.info(f"Total variable items found: {len(all_items)}")
+        logger.debug(f"Total variable items found: {len(all_items)}")
         return all_items
     
     def _generate_search_keywords(self, item: VariableItem) -> List[str]:

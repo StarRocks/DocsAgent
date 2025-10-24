@@ -31,7 +31,7 @@ class FunctionsPersister(DocPersister):
                 with open(output_path, 'w', encoding='utf-8') as f:
                     f.write(item.documents.get(lang, ""))
         
-        logger.info(f"Saved docs for {len(target_langs)} languages")
+        logger.debug(f"Saved docs for {len(target_langs)} languages")
 
     def _save_meta(self, items: List[FunctionItem]) -> None:
         """Save metadata as JSON file"""
@@ -44,4 +44,4 @@ class FunctionsPersister(DocPersister):
             with open(meta_file, 'w', encoding='utf-8') as f:
                 json.dump(item.to_dict(), f, ensure_ascii=False, indent=2)
             
-            logger.info(f"Saved metadata → {meta_file}")
+            logger.debug(f"Saved metadata → {meta_file}")

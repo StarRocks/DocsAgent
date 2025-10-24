@@ -94,7 +94,7 @@ def create_chat_model(
                 max_tokens=max_tokens,
                 **kwargs
             )
-        logger.info(f"Initialized chat model: {model_name}")
+        logger.debug(f"Initialized chat model: {model_name}")
         return chat_model
     except Exception as e:
         logger.error(f"Failed to initialize chat model {model_name}: {e}")

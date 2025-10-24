@@ -91,7 +91,7 @@ class ConfigMetaExtract:
         for lang in self.SUPPORTED_LANGS:
             lang_file = self.docs_dir / lang / doc_path.lstrip('/')
             if lang_file.exists():
-                logger.info(f"Extracting from {lang} version")
+                logger.debug(f"Extracting from {lang} version")
                 all_configs_by_lang[lang] = self._extract_single(str(lang_file), lang, scope)
             else:
                 logger.warning(f"File not found: {lang_file}")

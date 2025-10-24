@@ -149,38 +149,31 @@ class DocGenerationPipeline(Generic[T]):
         if target_langs is None:
             target_langs = ['en', 'zh']
         
-        logger.info("=" * 60)
-        logger.info(f"Starting Documentation Generation Pipeline")
-        logger.info(f"Item type: {self.item_type_name}")
-        logger.info(f"Target languages: {', '.join(target_langs)}")
-        if limit:
-            logger.info(f"Limit: {limit} {self.item_type_name}s per run (for items needing processing)")
-        logger.info("=" * 60)
+        # Pipeline start
+        limit_info = f" | Limit: {limit}" if limit else ""
+        logger.info(f"Starting {self.item_type_name} Pipeline | Languages: {', '.join(target_langs)}{limit_info}")
         
         # Step 1: Extract items
-        logger.info(f"[Step 1/6] Extracting {self.item_type_name}s...")
+        logger.info(f"[1/6] Extracting {self.item_type_name}s...")
         items = self.extractor.extract(force_search_code, ignore_miss_usage, **kwargs)
-        logger.info(f"✓ Extracted {len(items)} {self.item_type_name}s")
+        logger.info(f"  ✓ Extracted {len(items)} items")
         
         # Step 2: Analyze and group
-        logger.info(f"[Step 2/6] Analyzing existing documents...")
+        logger.info(f"[2/6] Analyzing documents...")
         groups = self.analyze_and_group(items)
-        logger.info(f"  • Has Chinese: {len(groups['has_zh'])} {self.item_type_name}s")
-        logger.info(f"  • Has English only: {len(groups['has_en_only'])} {self.item_type_name}s")
-        logger.info(f"  • Has neither: {len(groups['has_neither'])} {self.item_type_name}s")
+        logger.info(f"  ✓ Groups: zh={len(groups['has_zh'])}, en={len(groups['has_en_only'])}, none={len(groups['has_neither'])}")
         
         if only_diff:
-            logger.info("Only diff requested, skipping generation and translation")
+            logger.info("  ⊘ Diff mode: skipping generation and translation")
             return self._build_stats(items, groups, target_langs)
 
         # Apply limit to items that need processing
         if limit:
-            # Calculate items needing processing
             needs_processing = groups['has_zh'] + groups['has_en_only'] + groups['has_neither']
             total_needs_processing = len(needs_processing)
             
             if limit < total_needs_processing:
-                logger.info(f"⚠ Applying limit: processing {limit}/{total_needs_processing} {self.item_type_name}s that need processing")
+                logger.info(f"  ⚠ Limit applied: {limit}/{total_needs_processing} items")
                 
                 # Take first 'limit' items that need processing
                 limited_items = needs_processing[:limit]
@@ -191,59 +184,54 @@ class DocGenerationPipeline(Generic[T]):
                 groups['has_en_only'] = [item for item in groups['has_en_only'] if item.name in limited_names]
                 groups['has_neither'] = [item for item in groups['has_neither'] if item.name in limited_names]
                 
-                logger.info(f"  • Limited - Has Chinese: {len(groups['has_zh'])} {self.item_type_name}s")
-                logger.info(f"  • Limited - Has English only: {len(groups['has_en_only'])} {self.item_type_name}s")
-                logger.info(f"  • Limited - Has neither: {len(groups['has_neither'])} {self.item_type_name}s")
+                logger.debug(f"  After limit: zh={len(groups['has_zh'])}, en={len(groups['has_en_only'])}, none={len(groups['has_neither'])}")
         
         # Step 3: Generate for items without docs
         if groups['has_neither']:
             if self.doc_generator is None:
-                logger.warning(f"[Step 3/6] Cannot generate docs: no doc_generator provided")
+                logger.warning(f"[3/6] Skipped: no doc_generator provided")
             else:
-                logger.info(f"[Step 3/6] Generating docs for {len(groups['has_neither'])} {self.item_type_name}s...")
+                logger.info(f"[3/6] Generating {len(groups['has_neither'])} docs...")
                 self._generate_for_missing(groups['has_neither'])
                 # Move to has_en_only group (assuming we generate in English)
                 groups['has_en_only'].extend(groups['has_neither'])
                 groups['has_neither'] = []
-                logger.info("✓ Document generation completed")
+                logger.info(f"  ✓ Generation completed")
         else:
-            logger.info(f"[Step 3/6] All {self.item_type_name}s have existing documents, skipping generation")
+            logger.info(f"[3/6] Skipped: all items have docs")
         
         # Step 4: Process items with Chinese (ZH → EN → Others)
         if groups['has_zh']:
-            logger.info(f"[Step 4/6] Processing {self.item_type_name}s with Chinese documentation...")
+            logger.info(f"[4/6] Translating {len(groups['has_zh'])} items (zh→en→others)...")
             self.process_with_zh(groups['has_zh'], target_langs)
-            logger.info("✓ Chinese-based translation completed")
+            logger.info(f"  ✓ Chinese-based translation completed")
         else:
-            logger.info(f"[Step 4/6] No {self.item_type_name}s with Chinese docs, skipping")
+            logger.info(f"[4/6] Skipped: no Chinese docs")
         
         # Step 5: Process items with English only (EN → Others)
         if groups['has_en_only']:
-            logger.info(f"[Step 5/6] Processing {self.item_type_name}s with English documentation...")
+            logger.info(f"[5/6] Translating {len(groups['has_en_only'])} items (en→others)...")
             self.process_with_en(groups['has_en_only'], target_langs)
-            logger.info("✓ English-based translation completed")
+            logger.info(f"  ✓ English-based translation completed")
         else:
-            logger.info(f"[Step 5/6] No {self.item_type_name}s with English-only docs, skipping")
+            logger.info(f"[5/6] Skipped: no English-only docs")
         
         # Step 6: Save results
-        logger.info(f"[Step 6/6] Saving output files...")
+        logger.info(f"[6/6] Saving {len(items)} items to {output_dir}...")
         if self.persister:
             self.persister.save(items, output_dir, target_langs, **kwargs)
         else:
             self._default_save(items, output_dir, target_langs)
-        logger.info(f"✓ Files saved to {output_dir}")
+        logger.info(f"  ✓ Saved to {output_dir}")
         
         # Step 7: Git operations (optional)
         if auto_commit or create_pr:
-            logger.info(f"[Step 7/7] Executing git operations...")
+            logger.info(f"[7/7] Git operations...")
             success = self.git_persister.execute(languages=target_langs, auto_commit=auto_commit, create_pr=create_pr)
-            if success:
-                logger.info("✓ Git operations completed")
-            else:
-                logger.warning("⚠ Git operations failed or skipped")
+            logger.info(f"  ✓ Git {'committed' if success else 'skipped'}")
         
-        logger.info("\n" + "=" * 60)
-        logger.info("✅ Pipeline completed successfully!")
+        logger.info("=" * 60)
+        logger.info(f"✅ Pipeline completed - processed {len(items)} items")
         logger.info("=" * 60)
         
         return self._build_stats(items, groups, target_langs)
@@ -344,7 +332,7 @@ class DocGenerationPipeline(Generic[T]):
         if not items:
             return
         
-        logger.info(f"[Processing {len(items)} {self.item_type_name}s with Chinese docs]")
+        logger.debug(f"[Processing {len(items)} items with Chinese docs]")
         
         # Step 1: Ensure all items have English (ZH → EN)
         if 'en' in target_langs:
@@ -378,7 +366,7 @@ class DocGenerationPipeline(Generic[T]):
         if not items:
             return
         
-        logger.info(f"[Processing {len(items)} {self.item_type_name}s with English docs only]")
+        logger.debug(f"[Processing {len(items)} items with English docs only]")
         
         # Translate EN → all other target languages
         for lang in target_langs:
@@ -418,10 +406,10 @@ class DocGenerationPipeline(Generic[T]):
         ]
         
         if not items_need_translation:
-            logger.info(f"  All {self.item_type_name}s already have {target_lang}, skipping")
+            logger.debug(f"  All items already have {target_lang}")
             return
         
-        logger.info(f"  Translating {len(items_need_translation)} docs: {source_lang} → {target_lang}")
+        logger.debug(f"  Translating {len(items_need_translation)} docs: {source_lang} → {target_lang}")
         
         # Extract source language documents
         source_docs = [item.documents[source_lang] for item in items_need_translation]
@@ -472,7 +460,7 @@ class DocGenerationPipeline(Generic[T]):
             return self._translate_single_batch(docs, target_lang)
         
         # Split into batches
-        logger.info(f"Splitting {len(docs)} docs into batches of {batch_size}")
+        logger.debug(f"Processing {len(docs)} docs in batches of {batch_size}")
         all_translated = []
         
         for i in range(0, len(docs), batch_size):
@@ -480,7 +468,7 @@ class DocGenerationPipeline(Generic[T]):
             batch_num = i // batch_size + 1
             total_batches = (len(docs) + batch_size - 1) // batch_size
             
-            logger.info(f"  Processing batch {batch_num}/{total_batches} ({len(batch)} docs)")
+            logger.debug(f"  Batch {batch_num}/{total_batches} ({len(batch)} docs)")
             translated_batch = self._translate_single_batch(batch, target_lang)
             all_translated.extend(translated_batch)
         

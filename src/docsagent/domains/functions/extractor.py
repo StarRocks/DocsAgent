@@ -71,7 +71,7 @@ class FunctionsExtractor(ItemExtractor):
             # Step 2 & 3: Aggregate functions (aliases + overloads)
             aggregated_functions = self._aggregate_functions(raw_functions)
             
-            logger.info(f"Aggregated {len(raw_functions)} raw functions into {len(aggregated_functions)} items")
+            logger.debug(f"Aggregated {len(raw_functions)} raw functions into {len(aggregated_functions)} items")
             
             return aggregated_functions
         except Exception as e:
@@ -215,7 +215,7 @@ class FunctionsExtractor(ItemExtractor):
         # Sort by name for consistency
         aggregated.sort(key=lambda x: x.name)
         
-        logger.info(f"Aggregated into {len(aggregated)} unique functions")
+        logger.debug(f"Aggregated into {len(aggregated)} unique functions")
         for item in aggregated[:5]:  # Log first 5 as examples
             alias_info = f" (aliases: {', '.join(item.alias)})" if item.alias else ""
             logger.debug(f"  {item.name}{alias_info}: {len(item.signature)} overload(s)")
@@ -301,7 +301,7 @@ class FunctionsExtractor(ItemExtractor):
                     all_items[key] = item
                 
                 if function_items:
-                    logger.info(f"Found {len(function_items)} function items in {file_path}")
+                    logger.debug(f"Found {len(function_items)} function items in {file_path}")
                 else:
                     logger.debug(f"No function items found in {file_path}")
             except Exception as e:
@@ -328,11 +328,11 @@ class FunctionsExtractor(ItemExtractor):
         if 'force_search_test' in kwargs and kwargs['force_search_test']:
             self._search_test_cases(exists_metas)
             
-        logger.info(f"Total function items found: {len(exists_metas)}")
+        logger.debug(f"Total function items found: {len(exists_metas)}")
         return exists_metas
 
     def _search_implementations(self, exists_metas: List[FunctionItem]):
-        logger.info("Searching for variable usage locations...")
+        logger.debug("Searching for variable usage locations...")
             
         # Build keyword mapping: keyword -> variable name
         keyword_to_item = {}
@@ -344,7 +344,7 @@ class FunctionsExtractor(ItemExtractor):
                 keyword_to_item[keyword] = item.name
                 all_keywords.append(keyword)
 
-        logger.info(f"Searching for {len(all_keywords)} keywords across {len(exists_metas)} variables...")
+        logger.debug(f"Searching for {len(all_keywords)} keywords across {len(exists_metas)} variables...")
 
         # Search for all keywords
         code_search = CodeFileSearch(self.code_paths, file_filter=lambda f: f.suffix in ['.h', '.cpp', '.hpp'])
@@ -366,7 +366,7 @@ class FunctionsExtractor(ItemExtractor):
     
 
     def _search_test_cases(self, exists_metas: List[FunctionItem]):
-        logger.info("Searching for function implementation locations...")
+        logger.debug("Searching for function implementation locations...")
             
         # Build keyword mapping: keyword -> function name
         keyword_to_item = {}
@@ -379,7 +379,7 @@ class FunctionsExtractor(ItemExtractor):
                 keyword_to_item[keyword] = item.name
                 all_keywords.append(keyword)
 
-        logger.info(f"Searching for {len(all_keywords)} keywords across {len(exists_metas)} functions...")
+        logger.debug(f"Searching for {len(all_keywords)} keywords across {len(exists_metas)} functions...")
 
         # Search for all keywords
         Path(config.STARROCKS_HOME) / "test" / "sql"

@@ -136,7 +136,7 @@ class FunctionMetaExtract:
                 logger.warning(f"Language directory not found: {lang_dir}")
                 continue
             
-            logger.info(f"Processing {lang} version")
+            logger.debug(f"Processing {lang} version")
             discovered = self._discover_function_files(lang_dir)
             
             # Extract each function

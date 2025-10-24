@@ -125,7 +125,7 @@ class CodeFileSearch:
                         for line_num in line_numbers:
                             results[keyword].append(f"{str(file_path)}:{line_num}")
         
-        logger.info(f"Searched {file_count} files, found {len(results)} keywords")
+        logger.debug(f"Searched {file_count} files, found {len(results)} keywords")
         return dict(results)
     
     def search_with_context(
@@ -206,7 +206,7 @@ class CodeFileSearch:
                 total_matches=len(matches)
             )
         
-        logger.info(
+        logger.debug(
             f"Searched {file_count} files, found {len(results)} keywords "
             f"with {sum(r.total_matches for r in results.values())} total matches"
         )
@@ -239,7 +239,7 @@ class CodeFileSearch:
                 elements=len(patterns),
                 flags=flags
             )
-            logger.info(f"Compiled {len(patterns)} patterns with Hyperscan")
+            logger.debug(f"Compiled {len(patterns)} patterns with Hyperscan")
         except Exception as e:
             logger.error(f"Failed to compile Hyperscan database: {e}")
             self._hs_database = None

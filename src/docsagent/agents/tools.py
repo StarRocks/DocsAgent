@@ -265,7 +265,7 @@ def get_starrocks_tools(
             )
             return []
 
-        logger.info(f"StarRocks connection test succeeded ({config.SR_HOST}:{config.SR_PORT})")
+        logger.debug(f"StarRocks connection test succeeded ({config.SR_HOST}:{config.SR_PORT})")
     
     return [execute_sql]
 
@@ -295,6 +295,6 @@ def get_all_tools(include_starrocks: bool = False, test_sr_connection: bool = Tr
         if sr_tools:
             tools.extend(sr_tools)
         elif test_sr_connection:
-            logger.info("Continuing without StarRocks tools")
+            logger.debug("Continuing without StarRocks tools")
     
     return tools

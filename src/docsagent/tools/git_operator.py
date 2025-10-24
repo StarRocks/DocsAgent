@@ -52,7 +52,7 @@ class GitOperator:
         
         try:
             self.repo = Repo(self.repo_path)
-            logger.info(f"Valid git repository found: {self.repo_path}")
+            logger.debug(f"Valid git repository found: {self.repo_path}")
             return True
         except InvalidGitRepositoryError:
             logger.warning(f"Not a git repository: {self.repo_path}")
@@ -149,7 +149,7 @@ class GitOperator:
             new_branch.checkout()
             
             self.current_branch = branch_name
-            logger.info(f"Created and checked out branch: {branch_name}")
+            logger.debug(f"Created and checked out branch: {branch_name}")
             
             return branch_name
             
@@ -215,7 +215,7 @@ class GitOperator:
             
             # Commit
             self.repo.index.commit(commit_message)
-            logger.info(f"Created commit with {len(changed_files)} file(s)")
+            logger.debug(f"Created commit with {len(changed_files)} file(s)")
             
             return True, changed_files
             

@@ -15,7 +15,7 @@ class TranslationAgent:
     def __init__(self, source_lang: str = 'en'):
         self.chat_model = get_default_chat_model()
         self.source_lang = source_lang
-        logger.info("TranslationAgent initialized")
+        logger.debug("TranslationAgent initialized")
     
     def translate(
         self, 
@@ -39,7 +39,7 @@ class TranslationAgent:
             >>> text = "## Configuration\\n\\nThis is a description."
             >>> zh_text = agent.translate(text, 'zh')
         """
-        logger.info(f"Translating text to {target_lang} ({len(text)} chars)")
+        logger.debug(f"Translating text to {target_lang} ({len(text)} chars)")
         
         try:
             system_prompt = self._build_system_prompt(target_lang)

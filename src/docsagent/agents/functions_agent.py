@@ -45,12 +45,12 @@ class FunctionDocAgent:
         
         # Get tools - include StarRocks SQL execution tool if enabled
         self.tools = get_all_tools(include_starrocks=True, test_sr_connection=True)
-        logger.info("Function agent initialized with SQL execution capability")
+        logger.debug("Function agent initialized with SQL execution capability")
         
         self.llm_with_tools = self.chat_model.bind_tools(self.tools)
             
         self.workflow = self._build_workflow()
-        logger.info("FunctionDocAgent workflow built")
+        logger.debug("FunctionDocAgent workflow built")
     
     def _build_workflow(self) -> StateGraph:
         """Build the LangGraph workflow"""
@@ -102,7 +102,7 @@ class FunctionDocAgent:
         Constructs a detailed prompt including function metadata
         """
         func = state['func']
-        logger.info(f"Preparing prompt for function: {func.name}")
+        logger.debug(f"Preparing prompt for function: {func.name}")
         
         # Build user prompt with function information
         prompt = self._build_user_prompt(func)
@@ -123,7 +123,7 @@ class FunctionDocAgent:
         
         Invokes the chat model with system and user prompts
         """
-        logger.info("Calling LLM to generate documentation")
+        logger.debug("Calling LLM to generate documentation")
         
         try:
             # Use messages for tool-enabled workflow
@@ -150,7 +150,7 @@ class FunctionDocAgent:
         
         Ensures consistent formatting and structure
         """
-        logger.info("Formatting documentation")
+        logger.debug("Formatting documentation")
         
         raw = state['raw_output']
         func = state['func']
@@ -417,7 +417,7 @@ class FunctionDocAgent:
         func = state['func']
         documentation = state['documentation']
         
-        logger.info(f"Classifying function: {func.name} (current: {func.catalog})")
+        logger.debug(f"Classifying function: {func.name} (current: {func.catalog})")
         
         try:
             system_prompt = self._build_classify_system_prompt()
@@ -433,7 +433,7 @@ class FunctionDocAgent:
             
             # Update func.catalog
             func.catalog = catalog
-            logger.info(f"Classified {func.name} as: {catalog}")
+            logger.debug(f"Classified {func.name} as: {catalog}")
             
         except Exception as e:
             logger.error(f"Classification failed: {e}, keeping original catalog")
@@ -465,7 +465,7 @@ class FunctionDocAgent:
             ... )
             >>> doc = agent.generate(func)
         """
-        logger.info(f"Generating documentation for function: {func.name}")
+        logger.debug(f"Generating documentation for function: {func.name}")
         
         # Initialize state
         initial_state = FunctionDocState(
@@ -478,6 +478,6 @@ class FunctionDocAgent:
         # Run workflow
         final_state = self.workflow.invoke(initial_state)
         
-        logger.info(f"Documentation generated ({len(final_state['documentation'])} chars)")
+        logger.debug(f"Documentation generated ({len(final_state['documentation'])} chars)")
         
         return final_state['documentation']
