@@ -8,3 +8,5 @@ __pycache__/
 examples/
 output/
 logs/
+
+conf/agent.conf

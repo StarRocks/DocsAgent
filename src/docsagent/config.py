@@ -40,7 +40,6 @@ class AppConfig(BaseSettings):
     LLM_MAX_TOKENS: int = 5000
     
     # Processing configuration
-    FORCE_RESEARCH_CODE: bool = False
     TARGET_LANGS: List[str] = Field(default=['en', 'zh', 'ja'])
     
     # Logging configuration
