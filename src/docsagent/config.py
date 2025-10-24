@@ -56,6 +56,10 @@ class AppConfig(BaseSettings):
     
     MUST_USE_SR_CLIENT: bool = False  # Whether StarRocks client is required
     
+    # Git and GitHub configuration
+    GITHUB_TOKEN: str = ''  # GitHub personal access token for creating PRs
+    GITHUB_REPO: str = 'StarRocks/starrocks'  # GitHub repository in format 'owner/repo' (e.g., 'StarRocks/starrocks')
+    
     
     @property
     def DOCS_MODULE_DIR(self) -> Path:

@@ -21,7 +21,9 @@ dependencies = [
     "httpx[socks] (>=0.28.1,<0.29.0)",
     "pydantic-settings (>=2.11.0,<3.0.0)",
     "socksio (>=1.0.0,<2.0.0)",
-    "hyperscan (>=0.7.26,<0.8.0)"
+    "hyperscan (>=0.7.26,<0.8.0)",
+    "mysql-connector-python (>=9.5.0,<10.0.0)",
+    "requests (>=2.32.5,<3.0.0)"
 ]
 
 [tool.poetry]

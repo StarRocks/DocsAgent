@@ -1,13 +1,15 @@
 """
-FE Config domain: Extract, generate, and persist FE configuration documentation
+Functions domain: Extract, generate, and persist SQL functions documentation
 """
 
-from docsagent.domains.fe_config.extractor import FEConfigExtractor
-from docsagent.domains.fe_config.generator import FEConfigDocGenerator
-from docsagent.domains.fe_config.persister import FEConfigPersister
+from docsagent.domains.functions.extractor import FunctionsExtractor
+from docsagent.domains.functions.generator import FunctionsDocGenerator
+from docsagent.domains.functions.persister import FunctionsPersister
+from docsagent.domains.functions.git_persister import FunctionsGitPersister
 
 __all__ = [
-    'FEConfigExtractor',
-    'FEConfigDocGenerator',
-    'FEConfigPersister',
+    'FunctionsExtractor',
+    'FunctionsDocGenerator',
+    'FunctionsPersister',
+    'FunctionsGitPersister',
 ]

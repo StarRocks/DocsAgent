@@ -17,6 +17,7 @@ from .pipeline import (
     DEFAULT_SEPARATOR,
     DEFAULT_BATCH_SIZE,
 )
+from .git_persister import GitPersister
 
 __all__ = [
     # Protocols
@@ -28,4 +29,6 @@ __all__ = [
     'DocGenerationPipeline',
     'DEFAULT_SEPARATOR',
     'DEFAULT_BATCH_SIZE',
+    # Git
+    'GitPersister',
 ]
