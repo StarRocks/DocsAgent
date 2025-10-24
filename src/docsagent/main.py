@@ -209,11 +209,6 @@ def generate_docs(args):
     logger.info(f"  Target languages: {config.TARGET_LANGS}")
     logger.info(f"  Output directory: {config.DOCS_OUTPUT_DIR}")
     
-    # Update config if needed
-    if args.force_search_code:
-        config.FORCE_RESEARCH_CODE = True
-        logger.info("  Force code search: ENABLED")
-    
     try:
         # Create pipeline based on type
         logger.info("Creating pipeline...")
