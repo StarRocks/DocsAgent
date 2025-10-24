@@ -243,7 +243,7 @@ class GitOperator:
         lang_str = ", ".join(languages) if languages else "multiple languages"
         date_str = datetime.now().strftime("%Y-%m-%d")
         
-        message = f"""docs({domain}): update {lang_str} documentation
+        message = f"""[DOC] docs({domain}): update {lang_str} documentation
 
 Updated {len(changed_files)} file(s):
 """
