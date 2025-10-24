@@ -73,5 +73,5 @@ loguru
 ## 4. Copilot Rules
 * use chinese to answer
 * use english comments in code
-* don't generate any explain document if I don't request
+* don't generate any explain document if I don't request!!!
 * project use poetry to manage python environment, should run `poetry shell` when can't found libraries
