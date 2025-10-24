@@ -44,6 +44,7 @@ from docsagent.core.protocols import (
     DocGenerator,
     DocPersister,
 )
+from docsagent.core.git_persister import GitPersister
 from docsagent.agents.translation_agent import TranslationAgent
 
 
@@ -83,7 +84,8 @@ class DocGenerationPipeline(Generic[T]):
         doc_generator: Optional[DocGenerator[T]] = None,
         translation_agent: Optional[TranslationAgent] = None,
         persister: Optional[DocPersister[T]] = None,
-        item_type_name: str = "item"
+        git_persister: Optional[GitPersister] = None,  # Factory to create GitPersister
+        item_type_name: str = "item",
     ):
         """
         Initialize the pipeline with dependency injection.
@@ -94,11 +96,13 @@ class DocGenerationPipeline(Generic[T]):
             translation_agent: Translation service (default: create new)
             persister: File persister (optional, uses simple default)
             item_type_name: Name for logging (e.g., "config", "function")
+            git_persister_factory: Factory function to create GitPersister (optional)
         """
         self.extractor = extractor
         self.doc_generator = doc_generator
         self.translation_agent = translation_agent or TranslationAgent()
         self.persister = persister
+        self.git_persister = git_persister
         self.item_type_name = item_type_name
         
         logger.info(f"Initialized DocGenerationPipeline for {item_type_name}s")
@@ -112,6 +116,8 @@ class DocGenerationPipeline(Generic[T]):
         force_search_code: bool = False,
         ignore_miss_usage: bool = True,
         limit: Optional[int] = None,
+        auto_commit: bool = False,
+        create_pr: bool = False,
         **kwargs
     ) -> Dict[str, Any]:
         """
@@ -124,6 +130,7 @@ class DocGenerationPipeline(Generic[T]):
         4. Process items with Chinese: ZH → EN → Others
         5. Process items with English only: EN → Others
         6. Save all documentation files
+        7. Execute git operations (optional)
         
         Args:
             output_dir: Output directory for generated docs
@@ -131,6 +138,8 @@ class DocGenerationPipeline(Generic[T]):
             force_search_code: Whether to force re-search code for items without any
             ignore_miss_usage: Whether to ignore items without usage locations
             limit: Limit number of items (for testing)
+            auto_commit: Whether to auto commit changes to git
+            create_pr: Whether to create Pull Request (implies push)
             **kwargs: Additional options passed to extractor/persister
         
         Returns:
@@ -194,6 +203,15 @@ class DocGenerationPipeline(Generic[T]):
         else:
             self._default_save(items, output_dir, target_langs)
         logger.info(f"✓ Files saved to {output_dir}")
+        
+        # Step 7: Git operations (optional)
+        if auto_commit or create_pr:
+            logger.info(f"[Step 7/7] Executing git operations...")
+            success = self.git_persister.execute(languages=target_langs, auto_commit=auto_commit, create_pr=create_pr)
+            if success:
+                logger.info("✓ Git operations completed")
+            else:
+                logger.warning("⚠ Git operations failed or skipped")
         
         logger.info("\n" + "=" * 60)
         logger.info("✅ Pipeline completed successfully!")
