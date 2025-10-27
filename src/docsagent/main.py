@@ -68,9 +68,9 @@ Examples:
     )
     
     parser.add_argument(
-        '-d', '--diff',
+        '-m', '--meta',
         action='store_true',
-        help='Run without generating documentation, to print diff meta'
+        help='Run without generating documentation, to print meta information'
     )
     
     parser.add_argument(
@@ -84,6 +84,12 @@ Examples:
         choices=['fe_config', 'be_config', 'variables', 'functions'],
         default='fe_config',
         help='Type of documentation to generate (default: fe_config)'
+    )
+    
+    parser.add_argument(
+        '-wl', '--without-llm',
+        action='store_true',
+        help='Run without LLM for documentation generation'
     )
     
     parser.add_argument(
@@ -142,8 +148,8 @@ Examples:
     init_logger(log_dir=config.LOG_DIR, log_level=config.LOG_LEVEL)
     
     # Check if at least one action is specified
-    if not args.extract and not args.generate and not args.diff:
-        logger.warning("No action specified. Use -e to extract or -g to generate or -d to diff.")
+    if not args.extract and not args.generate and not args.meta:
+        logger.warning("No action specified. Use -e to extract or -g to generate or -m to show meta information.")
         parser.print_help()
         sys.exit(1)
     
@@ -152,7 +158,7 @@ Examples:
         if args.extract:
             extract_meta(args)
         
-        if args.generate or args.diff:
+        if args.generate or args.meta:
             generate_docs(args)
     except Exception as e:
         logger.exception(f"Execution failed: {e}")
@@ -199,7 +205,7 @@ def extract_meta(args):
 def generate_docs(args):
     """Generate documentation based on type"""
     logger.info("=" * 60)
-    logger.info(f"Generating {args.type.upper()} docs | Limit: {args.limit or 'None'} | Git: {'PR' if args.pr else 'Commit' if args.ci else 'No'}")
+    logger.info(f"Generating {args.type.upper()} docs | Without-LLM: {args.without_llm} | include_miss_usage: {args.include_miss_usage} | Limit: {args.limit or 'None'} | Git: {'PR' if args.pr else 'Commit' if args.ci else 'No'}")
     logger.info("=" * 60)
     
     if args.pr:
@@ -225,9 +231,10 @@ def generate_docs(args):
         result = pipeline.run(
             output_dir=config.DOCS_OUTPUT_DIR,
             target_langs=config.TARGET_LANGS,
-            only_diff=args.diff,
+            only_meta=args.meta,
             force_search_code=args.force_search_code,
             ignore_miss_usage=not args.include_miss_usage,
+            without_llm=args.without_llm,
             auto_commit=args.ci,
             create_pr=args.pr,
             limit=args.limit

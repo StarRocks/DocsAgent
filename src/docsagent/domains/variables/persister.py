@@ -28,14 +28,26 @@ class VariablesPersister(DocPersister):
         
         global_str = ""
         for g in global_variables:
-            global_str += f"* {g.show}\n"
+            # if g.invisible:
+            #     global_str += f"<!-- * {g.show} -->\n"
+            #     logger.debug(f"Adding invisible global variable to list: {g.show}")
+            # else:
+            global_str += f"* {g.show}\n"                
+            logger.debug(f"Adding global variable to list: {g.show}")
+                
         target_docs["global"] = global_str
 
         for lang in target_langs:
             logger.debug(f"Generating {lang} docs...")
             for var in variables:
                 if lang in var.documents:
+                    # if var.invisible:
+                    #     target_docs[lang] += f"<div style='display: none'>\n{var.documents[lang]}\n</div>\n\n"
+                    #     logger.debug(f"Adding invisible variable to docs: {var.show}")
+                    # else:
                     target_docs[lang] += var.documents[lang] + "\n\n"
+                    logger.debug(f"Adding variable to docs: {var.show}")
+                        
             self._apply_template_and_save(target_docs, lang, output_dir)
         
         logger.debug(f"Saved docs for {len(target_langs)} languages")

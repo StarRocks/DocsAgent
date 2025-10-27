@@ -182,7 +182,7 @@ class FunctionItem:
         return asdict(self)
     
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "VariableItem":
+    def from_dict(cls, data: Dict[str, Any]) -> "FunctionItem":
         return cls(**data)
     
     # ============ Additional Methods ============

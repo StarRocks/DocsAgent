@@ -24,6 +24,9 @@ class FunctionsPersister(DocPersister):
         for item in funcs:
             for lang in target_langs:
                 logger.debug(f"Generating {lang} docs...")
+                if item.catalog is None:
+                    logger.warning(f"Skipping function {item.name} due to missing catalog")
+                    continue
 
                 output_path = Path(output_dir) / lang / "functions" / item.catalog / f"{item.name}.md"
                 output_path.parent.mkdir(parents=True, exist_ok=True)

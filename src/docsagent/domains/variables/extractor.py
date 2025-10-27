@@ -51,7 +51,7 @@ class VariablesExtractor(ItemExtractor):
     def _extract_variables(self, file_path: str) -> List[VariableItem]:
         """Extract configuration items from Java files using regex (simple and reliable)"""
         # Skip non-Java files
-        if 'variable' not in file_path.lower():
+        if 'variable.java' not in file_path.lower():
             return []
 
         try:
@@ -59,11 +59,17 @@ class VariablesExtractor(ItemExtractor):
                 content = f.read()
 
             # Quick check if file contains @VarAttr annotations
-            if "@VarAttr" not in content or "@VariableMgr.VarAttr" not in content:
+            if "@VarAttr" not in content and "@VariableMgr.VarAttr" not in content:
                 return []
 
             logger.debug(f"Processing file: {file_path}")
-            return self._extract_with_regex(content, file_path)
+            items = self._extract_with_regex(content, file_path)
+            
+            logger.info(f"Extracted {len(items)} variable items from {file_path}")
+            for i in items:
+                logger.debug(f"  - {i.show} (type: {i.type}, default: {i.defaultValue})")
+            
+            return items
         except Exception as e:
             logger.warning(f"Failed to parse {file_path}: {e}")
             
@@ -75,7 +81,9 @@ class VariablesExtractor(ItemExtractor):
         
         # Pattern to match @VarAttr or @VariableMgr.VarAttr annotations with field declaration
         # Captures: annotation + field declaration
-        pattern = r'@(?:VariableMgr\.)?VarAttr\s*\([^)]*\)\s*(?:private|public|protected)?\s+(\w+(?:<[^>]+>)?)\s+(\w+)\s*=\s*([^;]+);'
+        # Supports: multi-line annotations, all Java field modifiers in any order
+        # Java field modifiers: access(public/protected/private), static, final, transient, volatile, synchronized, native, strictfp
+        pattern = r'@(?:VariableMgr\.)?VarAttr\s*\([^)]*\)\s*(?:(?:public|protected|private|static|final|transient|volatile|synchronized|native|strictfp)\s+)*(\w+(?:<[^>]+>)?)\s+(\w+)\s*=\s*([^;]+);'
         
         matches = re.finditer(pattern, content, re.MULTILINE | re.DOTALL)
         
@@ -164,8 +172,9 @@ class VariablesExtractor(ItemExtractor):
         Returns:
             The constant value or empty string if not found
         """
-        # Pattern to match: public static final String CONSTANT_NAME = "value";
-        pattern = rf'(?:public|private|protected)?\s+static\s+final\s+String\s+{constant_name}\s*=\s*["\']([^"\']+)["\']'
+        # Pattern to match: [modifiers] String CONSTANT_NAME = "value";
+        # Supports all Java field modifiers in any order
+        pattern = rf'(?:(?:public|protected|private|static|final|transient|volatile|synchronized|native|strictfp)\s+)*String\s+{constant_name}\s*=\s*["\']([^"\']+)["\']'
         match = re.search(pattern, content)
         
         if match:
@@ -200,11 +209,6 @@ class VariablesExtractor(ItemExtractor):
                 meta.useLocations = exists_metas[meta.show].useLocations
                 meta.documents = exists_metas[meta.show].documents
                 meta.version = exists_metas[meta.show].version
-
-        show_invisible = kwargs.get("show_invisible_variables", False)
-
-        if not show_invisible:
-            all_items = [item for item in all_items if not item.invisible]
             
         # Search for code usages if configured
         if 'force_search_code' in kwargs and kwargs['force_search_code']:

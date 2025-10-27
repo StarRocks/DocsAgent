@@ -243,7 +243,7 @@ class GitOperator:
         lang_str = ", ".join(languages) if languages else "multiple languages"
         date_str = datetime.now().strftime("%Y-%m-%d")
         
-        message = f"""[DOC] docs({domain}): update {lang_str} documentation
+        message = f"""[Doc] docs({domain}): update {lang_str} documentation
 
 Updated {len(changed_files)} file(s):
 """
@@ -366,7 +366,6 @@ Updated {len(changed_files)} file(s):
             pr_data = response.json()
             pr_url = pr_data.get("html_url")
             
-            logger.info(f"Created Pull Request: {pr_url}")
             return pr_url
             
         except requests.exceptions.RequestException as e:

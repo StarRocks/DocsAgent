@@ -335,5 +335,7 @@ class VariablesMetaExtract:
         # Save to JSON
         self.save_to_json(variables, str(self.output_file))
         logger.info(f"Saved to: {self.output_file}")
+        for v in variables:
+            logger.debug(f"Variable: {v.show}, Scope: {v.scope}")
         
         return variables

@@ -70,12 +70,11 @@ class FEConfigExtractor(ItemExtractor):
         
         # Pattern to match @ConfField annotation followed by static field declaration
         # Captures: 1) annotation params (optional), 2) field type, 3) field name, 4) default value
+        # Supports all Java field modifiers in any order
         pattern = re.compile(
             r'@ConfField\s*(?:\(([^)]*)\))?\s*'  # @ConfField with optional parameters
             r'(?:@\w+(?:\([^)]*\))?\s*)*'  # Skip other annotations like @Deprecated
-            r'(?:public|private|protected)?\s*'  # Optional access modifier
-            r'static\s+'  # Must have static
-            r'(?:final\s+)?'  # Optional final
+            r'(?:(?:public|protected|private|static|final|transient|volatile|synchronized|native|strictfp)\s+)*'  # All modifiers in any order
             r'([\w\[\]<>,\s]+?)\s+'  # Type (including generics, arrays)
             r'(\w+)\s*'  # Field name
             r'=\s*'  # Assignment

@@ -151,7 +151,7 @@ class GitPersister:
         
         # Generate PR title
         lang_str = ", ".join(languages)
-        title = f"[DOC] docs({self.domain}): update {lang_str} documentation"
+        title = f"[Doc] docs({self.domain}): update {lang_str} documentation"
         
         # Generate PR body
         body = self._generate_pr_body(changed_files, languages)

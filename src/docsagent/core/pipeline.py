@@ -115,7 +115,8 @@ class DocGenerationPipeline(Generic[T]):
         target_langs: List[str] = None,
         force_search_code: bool = False,
         ignore_miss_usage: bool = True,
-        only_diff: bool = False,
+        only_meta: bool = False,
+        without_llm: bool = False,
         limit: Optional[int] = None,
         auto_commit: bool = False,
         create_pr: bool = False,
@@ -132,19 +133,6 @@ class DocGenerationPipeline(Generic[T]):
         5. Process items with English only: EN → Others
         6. Save all documentation files
         7. Execute git operations (optional)
-        
-        Args:
-            output_dir: Output directory for generated docs
-            target_langs: Target languages (default: ['en', 'zh'])
-            force_search_code: Whether to force re-search code for items without any
-            ignore_miss_usage: Whether to ignore items without usage locations
-            limit: Limit number of items (for testing)
-            auto_commit: Whether to auto commit changes to git
-            create_pr: Whether to create Pull Request (implies push)
-            **kwargs: Additional options passed to extractor/persister
-        
-        Returns:
-            Statistics dictionary with processing results
         """
         if target_langs is None:
             target_langs = ['en', 'zh']
@@ -163,65 +151,63 @@ class DocGenerationPipeline(Generic[T]):
         groups = self.analyze_and_group(items)
         logger.info(f"  ✓ Groups: zh={len(groups['has_zh'])}, en={len(groups['has_en_only'])}, none={len(groups['has_neither'])}")
         
-        if only_diff:
+        if only_meta:
             logger.info("  ⊘ Diff mode: skipping generation and translation")
             return self._build_stats(items, groups, target_langs)
 
-        # Apply limit to items that need processing
-        if limit:
-            needs_processing = groups['has_zh'] + groups['has_en_only'] + groups['has_neither']
-            total_needs_processing = len(needs_processing)
+        if not without_llm:
+            # Apply limit to items that need processing
+            if limit:
+                needs_processing = groups['has_zh'] + groups['has_en_only'] + groups['has_neither']
+                total_needs_processing = len(needs_processing)
+                
+                if limit < total_needs_processing:
+                    logger.info(f"  ⚠ Limit applied: {limit}/{total_needs_processing} items")
+                    
+                    # Take first 'limit' items that need processing
+                    limited_items = needs_processing[:limit]
+                    limited_names = {item.name for item in limited_items}
+                    
+                    # Update groups to only include limited items
+                    groups['has_zh'] = [item for item in groups['has_zh'] if item.name in limited_names]
+                    groups['has_en_only'] = [item for item in groups['has_en_only'] if item.name in limited_names]
+                    groups['has_neither'] = [item for item in groups['has_neither'] if item.name in limited_names]
+                    
+                    logger.debug(f"  After limit: zh={len(groups['has_zh'])}, en={len(groups['has_en_only'])}, none={len(groups['has_neither'])}")
             
-            if limit < total_needs_processing:
-                logger.info(f"  ⚠ Limit applied: {limit}/{total_needs_processing} items")
-                
-                # Take first 'limit' items that need processing
-                limited_items = needs_processing[:limit]
-                limited_names = {item.name for item in limited_items}
-                
-                # Update groups to only include limited items
-                groups['has_zh'] = [item for item in groups['has_zh'] if item.name in limited_names]
-                groups['has_en_only'] = [item for item in groups['has_en_only'] if item.name in limited_names]
-                groups['has_neither'] = [item for item in groups['has_neither'] if item.name in limited_names]
-                
-                logger.debug(f"  After limit: zh={len(groups['has_zh'])}, en={len(groups['has_en_only'])}, none={len(groups['has_neither'])}")
-        
-        # Step 3: Generate for items without docs
-        if groups['has_neither']:
-            if self.doc_generator is None:
-                logger.warning(f"[3/6] Skipped: no doc_generator provided")
+            # Step 3: Generate for items without docs
+            if groups['has_neither']:
+                if self.doc_generator is None:
+                    logger.warning(f"[3/6] Skipped: no doc_generator provided")
+                else:
+                    logger.info(f"[3/6] Generating {len(groups['has_neither'])} docs...")
+                    self._generate_for_missing(groups['has_neither'])
+                    # Move to has_en_only group (assuming we generate in English)
+                    groups['has_en_only'].extend(groups['has_neither'])
+                    groups['has_neither'] = []
+                    logger.info(f"  ✓ Generation completed")
             else:
-                logger.info(f"[3/6] Generating {len(groups['has_neither'])} docs...")
-                self._generate_for_missing(groups['has_neither'])
-                # Move to has_en_only group (assuming we generate in English)
-                groups['has_en_only'].extend(groups['has_neither'])
-                groups['has_neither'] = []
-                logger.info(f"  ✓ Generation completed")
-        else:
-            logger.info(f"[3/6] Skipped: all items have docs")
-        
-        # Step 4: Process items with Chinese (ZH → EN → Others)
-        if groups['has_zh']:
-            logger.info(f"[4/6] Translating {len(groups['has_zh'])} items (zh→en→others)...")
-            self.process_with_zh(groups['has_zh'], target_langs)
-            logger.info(f"  ✓ Chinese-based translation completed")
-        else:
-            logger.info(f"[4/6] Skipped: no Chinese docs")
-        
-        # Step 5: Process items with English only (EN → Others)
-        if groups['has_en_only']:
-            logger.info(f"[5/6] Translating {len(groups['has_en_only'])} items (en→others)...")
-            self.process_with_en(groups['has_en_only'], target_langs)
-            logger.info(f"  ✓ English-based translation completed")
-        else:
-            logger.info(f"[5/6] Skipped: no English-only docs")
+                logger.info(f"[3/6] Skipped: all items have docs")
+            
+            # Step 4: Process items with Chinese (ZH → EN → Others)
+            if groups['has_zh']:
+                logger.info(f"[4/6] Translating {len(groups['has_zh'])} items (zh→en→others)...")
+                self.process_with_zh(groups['has_zh'], target_langs)
+                logger.info(f"  ✓ Chinese-based translation completed")
+            else:
+                logger.info(f"[4/6] Skipped: no Chinese docs")
+            
+            # Step 5: Process items with English only (EN → Others)
+            if groups['has_en_only']:
+                logger.info(f"[5/6] Translating {len(groups['has_en_only'])} items (en→others)...")
+                self.process_with_en(groups['has_en_only'], target_langs)
+                logger.info(f"  ✓ English-based translation completed")
+            else:
+                logger.info(f"[5/6] Skipped: no English-only docs")
         
         # Step 6: Save results
         logger.info(f"[6/6] Saving {len(items)} items to {output_dir}...")
-        if self.persister:
-            self.persister.save(items, output_dir, target_langs, **kwargs)
-        else:
-            self._default_save(items, output_dir, target_langs)
+        self.persister.save(items, output_dir, target_langs, **kwargs)
         logger.info(f"  ✓ Saved to {output_dir}")
         
         # Step 7: Git operations (optional)
@@ -525,31 +511,6 @@ class DocGenerationPipeline(Generic[T]):
             translated_docs = translated_docs[:len(docs)]
         
         return translated_docs
-    
-    # ============ Persistence ============
-    
-    def _default_save(self, items: List[T], output_dir: str, languages: List[str]) -> None:
-        """
-        Simple default persistence: one file per language.
-        
-        Args:
-            items: Items to save
-            output_dir: Output directory
-            languages: Target languages
-        """
-        output_path = Path(output_dir)
-        output_path.mkdir(parents=True, exist_ok=True)
-        
-        for lang in languages:
-            file_path = output_path / f"{self.item_type_name}s_{lang}.md"
-            content = f"# {self.item_type_name.title()}s Documentation ({lang})\n\n"
-            
-            for item in items:
-                if lang in item.documents:
-                    content += item.documents[lang] + "\n\n---\n\n"
-            
-            file_path.write_text(content, encoding='utf-8')
-            logger.info(f"  Saved {file_path}")
     
     # ============ Statistics ============
     

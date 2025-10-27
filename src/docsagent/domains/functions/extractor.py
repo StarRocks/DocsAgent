@@ -240,6 +240,9 @@ class FunctionsExtractor(ItemExtractor):
             # check_overflow = ast.literal_eval(elements[3]) if isinstance(elements[3], ast.Constant) else None
             return_type = ast.literal_eval(elements[4]) if isinstance(elements[4], ast.Constant) else None
             
+            if not func_name or func_name.startswith('__'):
+                return None
+            
             # Extract argument types
             arg_types = []
             if isinstance(elements[5], ast.List):
@@ -423,7 +426,7 @@ class FunctionsExtractor(ItemExtractor):
                     if file.endswith('.meta'):
                         with open(os.path.join(root, file), 'r', encoding='utf-8') as f:
                             data = json.load(f)
-                        items.append(self._item_from_dict(data))
+                        items.append(FunctionItem.from_dict(data))
             return items
             
         except json.JSONDecodeError as e:
