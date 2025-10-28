@@ -149,7 +149,7 @@ class FEConfigExtractor(ItemExtractor):
 
         # Search for code usages if configured
         if 'force_search_code' in kwargs and kwargs['force_search_code']:
-            search_keywords = [k.name for k in all_items]
+            search_keywords = ["Config." + k.name for k in all_items]
             code_search = CodeFileSearch(self.code_paths, file_filter=lambda f: f.suffix in ['.java'])
             search_results = code_search.search(search_keywords)
 

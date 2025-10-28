@@ -268,7 +268,7 @@ class VariablesExtractor(ItemExtractor):
         camel_case = self._to_camel_case(var_name, capitalize_first=True)
                 
         # 1. Direct reference: variableName
-        keywords.append(var_name)
+        keywords.append("Variable." + var_name)
 
         # 2. Setter method: setVariableName
         keywords.append(f"set{camel_case}")

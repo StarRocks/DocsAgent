@@ -32,7 +32,7 @@ class FunctionsPersister(DocPersister):
                 output_path.parent.mkdir(parents=True, exist_ok=True)
                 
                 with open(output_path, 'w', encoding='utf-8') as f:
-                    f.write(item.documents.get(lang, ""))
+                    f.write(item.documents.get(lang, "").strip() + "\n")
         
         logger.debug(f"Saved docs for {len(target_langs)} languages")
 
