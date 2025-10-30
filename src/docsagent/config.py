@@ -35,7 +35,7 @@ class AppConfig(BaseSettings):
     LLM_MODEL: str = 'openai:gpt-3.5-turbo'
     LLM_API_KEY: str = ''
     LLM_URL: str = ''
-    LLM_PROVIDER: str = 'openai'
+    LLM_PROVIDER: str = ''
     LLM_TEMPERATURE: float = 0.1
     LLM_MAX_TOKENS: int = 5000
     

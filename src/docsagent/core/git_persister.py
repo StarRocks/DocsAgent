@@ -79,7 +79,11 @@ class GitPersister:
                 logger.error("Failed to commit changes")
                 return False
             
-            logger.info(f"Committed {len(changed_files)} file(s)")
+            if not changed_files:
+                logger.info("No files were modified, skipping PR creation")
+                return True
+            
+            logger.info(f"Committed {len(changed_files)} modified file(s)")
             
             # Create PR if enabled (this implies push)
             if create_pr:

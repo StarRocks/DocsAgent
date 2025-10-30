@@ -177,7 +177,7 @@ class GitOperator:
         
         Note:
             File mappings should be provided by domain-specific persister.
-            TODO: Implement file mapping configuration in domain persisters.
+            Only files with actual changes will be committed.
         """
         if not self.repo:
             raise RuntimeError("Repository not initialized")
@@ -197,15 +197,25 @@ class GitOperator:
                 # Create target directory if needed
                 target_path.parent.mkdir(parents=True, exist_ok=True)
                 
-                # Copy file
-                import shutil
-                shutil.copy2(source_path, target_path)
-                changed_files.append(str(target_rel))
-                logger.debug(f"Copied: {source_rel} -> {target_rel}")
+                # Check if file needs to be updated
+                needs_copy = True
+                if target_path.exists():
+                    # Compare file contents
+                    import filecmp
+                    if filecmp.cmp(source_path, target_path, shallow=False):
+                        logger.debug(f"File unchanged, skipping: {target_rel}")
+                        needs_copy = False
+                
+                # Copy file only if needed
+                if needs_copy:
+                    import shutil
+                    shutil.copy2(source_path, target_path)
+                    changed_files.append(str(target_rel))
+                    logger.debug(f"Copied: {source_rel} -> {target_rel}")
             
             if not changed_files:
-                logger.warning("No files were copied, skipping commit")
-                return False, []
+                logger.info("No files were modified, skipping commit")
+                return True, []  # Success but no changes
             
             # Stage changed files
             self.repo.index.add(changed_files)
@@ -215,7 +225,7 @@ class GitOperator:
             
             # Commit
             self.repo.index.commit(commit_message)
-            logger.debug(f"Created commit with {len(changed_files)} file(s)")
+            logger.info(f"Created commit with {len(changed_files)} modified file(s)")
             
             return True, changed_files
             
