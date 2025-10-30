@@ -12,18 +12,19 @@ dependencies = [
     "tree-sitter-java (>=0.23.5,<0.24.0)",
     "tree-sitter-python (>=0.25.0,<0.26.0)",
     "tree-sitter-cpp (>=0.23.4,<0.24.0)",
-    "langgraph (>=0.6.10,<0.7.0)",
+    "langgraph (>=1.0.2,<1.1.0)",
     "gitpython (>=3.1.45,<4.0.0)",
     "loguru (>=0.7.3,<0.8.0)",
     "tree-sitter-languages (>=1.10.2,<2.0.0)",
-    "langchain[anthropic] (>=0.3.27,<0.4.0)",
-    "langchain-openai (>=0.3.35,<0.4.0)",
+    "langchain[anthropic] (>=1.0.0,<2.0.0)",
+    "langchain-openai (>=1.0.0,<2.0.0)",
     "httpx[socks] (>=0.28.1,<0.29.0)",
     "pydantic-settings (>=2.11.0,<3.0.0)",
     "socksio (>=1.0.0,<2.0.0)",
     "hyperscan (>=0.7.26,<0.8.0)",
     "mysql-connector-python (>=9.5.0,<10.0.0)",
-    "requests (>=2.32.5,<3.0.0)"
+    "requests (>=2.32.5,<3.0.0)",
+    "langchain[google-genai] (>=1.0.0,<2.0.0)"
 ]
 
 [tool.poetry]

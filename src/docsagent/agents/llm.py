@@ -77,7 +77,7 @@ def create_chat_model(
     
     # Initialize the chat model
     try:
-        if api_url is not None and model_provider is not None:
+        if api_url != "" and model_provider != "":
             chat_model = init_chat_model(
                 model=model_name,
                 model_provider=model_provider,

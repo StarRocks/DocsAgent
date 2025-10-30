@@ -58,8 +58,8 @@ class TranslationAgent:
             
         except Exception as e:
             logger.error(f"Translation failed: {e}")
-            # Return original text with error note
-            return f"{text}\n\n*[Translation failed: {str(e)}]*"
+            # Re-raise exception to prevent storing failed translation
+            raise RuntimeError(f"Translation to {target_lang} failed: {str(e)}") from e
     
     def _build_system_prompt(self, target_lang: str) -> str:
         """Build system prompt for translation"""

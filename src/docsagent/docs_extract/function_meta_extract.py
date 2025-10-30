@@ -194,7 +194,7 @@ class FunctionMetaExtract:
             for lang in self.SUPPORTED_LANGS:
                 if lang in funcs_by_name and func_name in funcs_by_name[lang]:
                     lang_func = funcs_by_name[lang][func_name]
-                    if lang in lang_func.documents:
+                    if lang in lang_func.documents and lang_func.documents[lang].strip() != "":
                         aggregated_func.documents[lang] = lang_func.documents[lang]
             
             aggregated.append(aggregated_func)
@@ -250,7 +250,7 @@ class FunctionMetaExtract:
             module=module,
             implement_fns=[],  # Will be filled from source code analysis
             testCases=[],  # Will be filled from test discovery
-            documents={lang: content.strip()},
+            documents={lang: content},
             version=version,
             useLocations=[]  # Will be filled from source code analysis
         )

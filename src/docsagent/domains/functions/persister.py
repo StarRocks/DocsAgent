@@ -22,17 +22,24 @@ class FunctionsPersister(DocPersister):
     def _save_documents(self, funcs: List[FunctionItem], output_dir: str, target_langs: List[str]) -> None:
         """Generate and save markdown docs for each language"""
         for item in funcs:
+            if item.catalog is None:
+                logger.info(f"Skipping function {item.name} due to missing catalog")
+                continue
+            
+            lost_lang = []
             for lang in target_langs:
                 logger.debug(f"Generating {lang} docs...")
-                if item.catalog is None:
-                    logger.warning(f"Skipping function {item.name} due to missing catalog")
+                
+                if item.documents.get(lang, "").strip() == "":
+                    lost_lang.append(lang)
                     continue
 
                 output_path = Path(output_dir) / lang / "functions" / item.catalog / f"{item.name}.md"
                 output_path.parent.mkdir(parents=True, exist_ok=True)
                 
                 with open(output_path, 'w', encoding='utf-8') as f:
-                    f.write(item.documents.get(lang, "").strip() + "\n")
+                    f.write(item.documents.get(lang, ""))
+            logger.info(f"Skipping function {item.name} for lost languages: {lost_lang}")
         
         logger.debug(f"Saved docs for {len(target_langs)} languages")
 

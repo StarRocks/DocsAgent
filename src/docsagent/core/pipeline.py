@@ -162,10 +162,14 @@ class DocGenerationPipeline(Generic[T]):
                 total_needs_processing = len(needs_processing)
                 
                 if limit < total_needs_processing:
-                    logger.info(f"  ⚠ Limit applied: {limit}/{total_needs_processing} items")
-                    
                     # Take first 'limit' items that need processing
-                    limited_items = needs_processing[:limit]
+                    limited_items = []
+                    for item in needs_processing:
+                        if len(limited_items) >= limit:
+                            break
+                        if len(item.documents) < len(target_langs):
+                            limited_items.append(item)
+                    
                     limited_names = {item.name for item in limited_items}
                     
                     # Update groups to only include limited items
@@ -173,8 +177,8 @@ class DocGenerationPipeline(Generic[T]):
                     groups['has_en_only'] = [item for item in groups['has_en_only'] if item.name in limited_names]
                     groups['has_neither'] = [item for item in groups['has_neither'] if item.name in limited_names]
                     
-                    logger.debug(f"  After limit: zh={len(groups['has_zh'])}, en={len(groups['has_en_only'])}, none={len(groups['has_neither'])}")
-            
+                    logger.info(f"  After limit {limit}/{total_needs_processing}: zh={len(groups['has_zh'])}, en={len(groups['has_en_only'])}, none={len(groups['has_neither'])}")
+                    logger.info("  Choose items: " + ", ".join(sorted(limited_names)))
             # Step 3: Generate for items without docs
             if groups['has_neither']:
                 if self.doc_generator is None:
@@ -187,7 +191,7 @@ class DocGenerationPipeline(Generic[T]):
                     groups['has_neither'] = []
                     logger.info(f"  ✓ Generation completed")
             else:
-                logger.info(f"[3/6] Skipped: all items have docs")
+                logger.info(f"[3/6] Skipped: all items have one doc at least")
             
             # Step 4: Process items with Chinese (ZH → EN → Others)
             if groups['has_zh']:
@@ -251,9 +255,12 @@ class DocGenerationPipeline(Generic[T]):
         }
         
         for item in items:
+            # Clean up empty docs
+            item.documents = {k: v for k, v in item.documents.items() if v and v.strip() != ""}
+            
             docs = item.documents
-            has_zh = 'zh' in docs and bool(docs['zh'])
-            has_en = 'en' in docs and bool(docs['en'])
+            has_zh = 'zh' in docs and docs['zh'].strip() != ""
+            has_en = 'en' in docs and docs['en'].strip() != ""
             
             if has_zh:
                 groups['has_zh'].append(item)
@@ -401,17 +408,22 @@ class DocGenerationPipeline(Generic[T]):
         source_docs = [item.documents[source_lang] for item in items_need_translation]
         
         # Batch translate with separator method
-        translated_docs = self._translate_with_separators(
-            docs=source_docs,
-            target_lang=target_lang,
-            batch_size=batch_size
-        )
-        
-        # Update item documents
-        for item, translated_doc in zip(items_need_translation, translated_docs):
-            item.documents[target_lang] = translated_doc
-        
-        logger.info(f"  ✓ Updated {len(translated_docs)} {self.item_type_name}s with {target_lang} documents")
+        try:
+            translated_docs = self._translate_with_separators(
+                docs=source_docs,
+                target_lang=target_lang,
+                batch_size=batch_size
+            )
+            
+            # Update item documents
+            for item, translated_doc in zip(items_need_translation, translated_docs):
+                item.documents[target_lang] = translated_doc
+
+            logger.info(f"  ✓ Updated {len(translated_docs)} {self.item_type_name}s with {target_lang} documents")
+        except Exception as e:
+            logger.error(f"  Translation failed for {source_lang} → {target_lang}: {e}")
+            logger.warning(f"  Skipping translation for {len(items_need_translation)} items")
+            # Do not update documents, just skip this translation
     
     # ============ Batch Translation with Separators ============
     
