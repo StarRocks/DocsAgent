@@ -29,5 +29,9 @@ if __name__ == '__main__':
         output_dir=config.DOCS_OUTPUT_DIR,
         target_langs=config.TARGET_LANGS,
         force_search_code=True,
-        limit=2
+        ignore_miss_usage=False,
+        without_llm=False,
+        limit=1,
+        auto_commit=False,
+        create_pr=False
     )
