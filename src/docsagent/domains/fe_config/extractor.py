@@ -168,8 +168,8 @@ class FEConfigExtractor(ItemExtractor):
             search_results = code_search.search(search_keywords)
 
             for item in all_items:
-                if item.name in search_results:
-                    item.useLocations = search_results[item.name]
+                if "Config." + item.name in search_results:
+                    item.useLocations = search_results["Config." + item.name]
 
         logger.debug(f"Total config items found: {len(all_items)}")
         return all_items

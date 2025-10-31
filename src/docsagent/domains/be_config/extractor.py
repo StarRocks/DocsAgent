@@ -225,8 +225,8 @@ class BEConfigExtractor(ItemExtractor):
             search_results = code_search.search(search_keywords)
 
             for item in all_items:
-                if item.name in search_results:
-                    item.useLocations = search_results[item.name]
+                if "config::" + item.name in search_results:
+                    item.useLocations = search_results["config::" + item.name]
 
         logger.debug(f"Total config items found: {len(all_items)}")
         return all_items
