@@ -117,12 +117,11 @@ class VariablesExtractor(ItemExtractor):
                 params = code_tools.parse_equals_pair(anno_match.group(1))
 
                 name = self._extract_param_value(params, 'name', content)
-                alias = self._extract_param_value(params, 'alias', content)
                 show = self._extract_param_value(params, 'show', content)
                 flag = self._extract_param_value(params, 'flag', content)
                 
-                # Determine display name: show > alias > name
-                display_name = show if show else (alias if alias else name)
+                # Determine display name: show > name > alias
+                display_name = show if show else name
                 
                 # Check if invisible
                 is_invisible = 'INVISIBLE' in flag if flag else False
@@ -241,7 +240,7 @@ class VariablesExtractor(ItemExtractor):
             logger.debug(f"Searching for {len(all_keywords)} keywords across {len(all_items)} variables...")
             
             # Search for all keywords
-            code_search = CodeFileSearch(self.code_paths, file_filter=lambda f: 'variable' not in f.name.lower() and f.suffix in ['.java', '.h', '.cpp', '.hpp'])
+            code_search = CodeFileSearch(self.code_paths, file_filter=lambda f: f.suffix in ['.java'])
             search_results = code_search.search(all_keywords)
 
             # Aggregate results by variable name
