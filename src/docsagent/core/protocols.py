@@ -234,7 +234,10 @@ class ItemExtractor(Protocol[T]):
             ]
             filtered = original_count - len(items)
             if filtered > 0:
-                logger.info(f"Filtered {filtered} items without usage")
+                logger.info(f"Filtered {filtered} items without usage: ")
+                for item in items:
+                    if not item.useLocations:
+                        logger.info(f" - {item.name}")
         
         # Log statistics
         stats = self.get_statistics(items) if hasattr(self, 'get_statistics') else {}
