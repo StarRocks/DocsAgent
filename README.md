@@ -80,14 +80,18 @@ graph TB
 
 ```bash
 # Clone the repository
-git clone https://github.com/Seaven/DocsAgent.git
+git clone https://github.com/StarRocks/DocsAgent.git
 cd DocsAgent
 
 # Install dependencies
+# `brew install poetry` on mac, or similar on other OS may be needed
 poetry install
 
 # Activate virtual environment
-poetry shell
+poetry env activate
+
+# Install DocsAgent
+pip install .
 ```
 
 ### Configuration
