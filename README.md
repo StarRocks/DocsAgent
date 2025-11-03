@@ -165,25 +165,25 @@ LOG_LEVEL=INFO
 python -m docsagent.main -e -t fe_config
 
 # 2. Generate FE config documentation and create git pr 
-python -m docsagent.main -g -t fe_config --pr
+python -m docsagent.main -g -t fe_config --track-version --pr
 
 # FE/BE configs full
 # 1. Generate FE config documentation with limit and create git pr 
-python -m docsagent.main -g -t fe_config -l 10 --pr
+python -m docsagent.main -g -t fe_config -l 10 --track-version --pr
 
 # Variables
 # 1. Extract Variables meta from documentation
 python -m docsagent.main -e -t variables
 
 # 2. Generate Variables documentation
-python -m docsagent.main -g -t variables --ci
+python -m docsagent.main -g -t variables --track-version --ci
 
 # Functions
 # 1. Extract Functions meta from documentation
 python -m docsagent.main -e -t variables
 
 # 2. Generate Functions documentation without llm generate
-python -m docsagent.main -g -t variables -wl
+python -m docsagent.main -g -t variables --track-version -wl
 ```
 
 ## 🔧 Development Guide
