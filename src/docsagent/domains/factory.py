@@ -41,6 +41,9 @@ from docsagent.domains.functions.generator import FunctionsDocGenerator
 from docsagent.domains.functions.extractor import FunctionsExtractor
 from docsagent.domains.functions.git_persister import FunctionsGitPersister
 
+from docsagent.domains.variables.version_extractor import VariablesVersionExtractor
+from docsagent.domains.fe_config.version_extractor import FEConfigVersionExtractor
+from docsagent.domains.be_config.version_extractor import BEConfigVersionExtractor
 
 from docsagent.agents.translation_agent import TranslationAgent
 from docsagent import config
@@ -76,13 +79,18 @@ def create_fe_config_pipeline() -> DocGenerationPipeline[ConfigItem]:
     persister = FEConfigPersister()
     logger.debug("✓ FEConfigPersister")
     
+    # Create version extractor
+    version_extractor = FEConfigVersionExtractor()
+    logger.debug("✓ FEConfigVersionExtractor")
+    
     pipeline = DocGenerationPipeline[ConfigItem](
         extractor=extractor,
         doc_generator=generator,
         translation_agent=translation_agent,
         persister=persister,
         git_persister=FEConfigGitPersister(),
-        item_type_name="FE Config",
+        version_extractor=version_extractor,
+        item_type_name="fe_config",
     )
     
     logger.debug("✓ Pipeline created")
@@ -119,13 +127,18 @@ def create_be_config_pipeline():
     persister = BEConfigPersister()
     logger.debug("✓ BEConfigPersister")
     
+    # Create version extractor
+    version_extractor = BEConfigVersionExtractor()
+    logger.debug("✓ BEConfigVersionExtractor")
+    
     pipeline = DocGenerationPipeline[ConfigItem](
         extractor=extractor,
         doc_generator=generator,
         translation_agent=translation_agent,
         persister=persister,
         git_persister=BEConfigGitPersister(),
-        item_type_name="BE Config",
+        version_extractor=version_extractor,
+        item_type_name="be_config",
     )
     
     logger.debug("✓ Pipeline created")
@@ -162,13 +175,18 @@ def create_variable_pipeline():
     persister = VariablesPersister()
     logger.debug("✓ VariablesPersister")
     
+    # Create version extractor
+    version_extractor = VariablesVersionExtractor()
+    logger.debug("✓ VariablesVersionExtractor")
+    
     pipeline = DocGenerationPipeline[ConfigItem](
         extractor=extractor,
         doc_generator=generator,
         translation_agent=translation_agent,
         persister=persister,
         git_persister=VariablesGitPersister(),
-        item_type_name="Variables",
+        version_extractor=version_extractor,
+        item_type_name="variables",
     )
     
     logger.debug("✓ Pipeline created")

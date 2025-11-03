@@ -144,6 +144,12 @@ Examples:
         help='Enable create PRs to remote git repository'
     )
     
+    parser.add_argument(
+        '-v', '--track-version',
+        action='store_true',
+        help='Enable version tracking for items without version info'
+    )
+    
     args = parser.parse_args()
     
     # Load configuration
@@ -251,7 +257,8 @@ def generate_docs(args):
             without_llm=args.without_llm,
             auto_commit=args.ci,
             create_pr=args.pr,
-            limit=args.limit
+            limit=args.limit,
+            track_version=args.track_version
         )
         
         # Log results

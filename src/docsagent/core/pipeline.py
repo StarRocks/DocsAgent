@@ -59,6 +59,7 @@ from docsagent.core.protocols import (
     DocPersister,
 )
 from docsagent.core.git_persister import GitPersister
+from docsagent.core.version_extractor import BaseVersionExtractor
 from docsagent.agents.translation_agent import TranslationAgent
 
 
@@ -98,7 +99,8 @@ class DocGenerationPipeline(Generic[T]):
         doc_generator: Optional[DocGenerator[T]] = None,
         translation_agent: Optional[TranslationAgent] = None,
         persister: Optional[DocPersister[T]] = None,
-        git_persister: Optional[GitPersister] = None,  # Factory to create GitPersister
+        git_persister: Optional[GitPersister] = None,
+        version_extractor: Optional[BaseVersionExtractor] = None,  # Version extractor (optional)
         item_type_name: str = "item",
     ):
         """
@@ -109,7 +111,8 @@ class DocGenerationPipeline(Generic[T]):
             doc_generator: Doc generator (optional if items have docs)
             translation_agent: Translation service (default: create new)
             persister: File persister (optional, uses simple default)
-            git_persister_factory: Factory function to create GitPersister (optional)
+            git_persister: GitPersister instance (optional)
+            version_extractor: Version extractor (optional, for version tracking)
             item_type_name: Name for logging (e.g., "config", "function")
         """
         self.extractor = extractor
@@ -117,6 +120,7 @@ class DocGenerationPipeline(Generic[T]):
         self.translation_agent = translation_agent or TranslationAgent()
         self.persister = persister
         self.git_persister = git_persister
+        self.version_extractor = version_extractor
         self.item_type_name = item_type_name
         
         logger.info(f"Initialized DocGenerationPipeline for {item_type_name}s")
@@ -159,6 +163,11 @@ class DocGenerationPipeline(Generic[T]):
         logger.info(f"[1/6] Extracting {self.item_type_name}s...")
         items = self.extractor.extract(force_search_code, ignore_miss_usage, **kwargs)
         logger.info(f"  ✓ Extracted {len(items)} items")
+        
+        # Step 1.5: Update item versions (track new if requested, or load from cache)
+        if self.version_extractor:
+            track_new = kwargs.get('track_version', False)
+            self.version_extractor.update_item_versions(items, track_new=track_new)
         
         # Step 2: Analyze and group
         logger.info(f"[2/6] Analyzing documents...")

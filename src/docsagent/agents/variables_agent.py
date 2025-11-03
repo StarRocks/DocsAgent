@@ -211,7 +211,7 @@ class VariableDocAgent:
         * **Description**: ${description}
         * **Default**: ${default value}
         * **Data Type**: ${variable type}
-        * **Introduced in**: -
+        * **Introduced in**: ${`Introduced in` from metadata, use '-' if not available}
         // document end, just to mark that the document ends and doesn't need to be included in the output.
         
         output example:
@@ -227,6 +227,9 @@ class VariableDocAgent:
     
     def _build_user_prompt(self, variable: VariableItem) -> str:
         """Build user prompt with variable metadata"""
+        # Format version info
+        version_info = ", ".join(variable.version) if variable.version else "-"
+        
         prompt = f"""
         Generate documentation for the following StarRocks variable:
         
@@ -235,6 +238,7 @@ class VariableDocAgent:
         **Default Value**: {variable.defaultValue}
         **Scope**: {variable.scope}
         **Show Name**: {variable.show}
+        **Introduced in**: {version_info}
         **UseLocations**: {variable.useLocations}
         **Comment**: {variable.comment}
 
@@ -246,13 +250,15 @@ class VariableDocAgent:
     def generate_fallback_doc(self, variable: VariableItem) -> str:
         """Generate fallback documentation when LLM fails"""
         scope_suffix = "(Global)" if variable.scope.lower() == "global" else ""
+        version_info = ", ".join(variable.version) if variable.version else "-"
+        
         fallback = f"""
         ### {variable.show} {scope_suffix}
 
         * **Description**: {variable.comment}
         * **Default**: {variable.defaultValue}
         * **Data Type**: {variable.type}
-        * **Introduced in**: -
+        * **Introduced in**: {version_info}
         """
         return fallback.strip()
     
