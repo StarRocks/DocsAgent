@@ -147,9 +147,9 @@ LOG_LEVEL=INFO
 | `-i, --ignore_miss_usage` | Ignore missing usage information                        |
 | `-wl, --without-llm`      | Run without LLM (use existing docs)                     |
 | `-l, --limit`             | Limit number of items to process                        |
-| `--git-ci`                | Enable Git commit                                       |
-| `--git-pr`                | Enable Pull Request creation                            |
-
+| `--ci`                | Enable Git commit                                       |
+| `--pr`                | Enable Pull Request creation                            |
+| `-v, --track-version`      | Enable track introduced version                           |
 
 ```bash
 # Incremental Mode: 
