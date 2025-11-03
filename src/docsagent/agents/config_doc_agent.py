@@ -200,7 +200,7 @@ class ConfigDocAgent:
         - These locations show real usage and help you understand the config's purpose
         - You can use `read_file` to read these files and understand the context
         - Example: If UseLocations shows "fe/src/main/java/ConfigManager.java:42", you can read that file
-        
+
         **Recommended workflow**:
         1. Review the config metadata (name, type, default, comment, UseLocations)
         2. **OPTIONAL**: Use `read_file` to check those files for usage context if UseLocations is provided and needed
@@ -216,7 +216,7 @@ class ConfigDocAgent:
         - Unit: ${unit if applicable, else N/A}
         - Is mutable: ${is mutable}
         - Description: ${description}
-        - Introduced in: -
+        - Introduced in: ${`Introduced in` info from metadata, use '-' if not available}
         // document end, just to marked the document is end and doesn't need to be included in the output.
         
         output example:
@@ -232,6 +232,9 @@ class ConfigDocAgent:
     
     def _build_user_prompt(self, config: ConfigItem) -> str:
         """Build user prompt with config metadata"""
+        # Format version info
+        version_info = ", ".join(config.version) if config.version else "-"
+        
         prompt = f"""
         Generate documentation for the following StarRocks configuration item:
         
@@ -239,6 +242,7 @@ class ConfigDocAgent:
         **Type**: {config.type}
         **Default Value**: {config.defaultValue}
         **isMutable**: {config.isMutable}
+        **Introduced in**: {version_info}
         **UseLocations**: {config.useLocations}
         **Comment**: {config.comment}
 
@@ -249,6 +253,8 @@ class ConfigDocAgent:
     
     def generate_fallback_doc(self, config: ConfigItem) -> str:
         """Generate fallback documentation when LLM fails"""
+        version_info = ", ".join(config.version) if config.version else "-"
+        
         fallback = f"""
         ##### {config.name}
 
@@ -257,7 +263,7 @@ class ConfigDocAgent:
         - Unit: N/A
         - Is mutable: {config.isMutable}
         - Description: {config.comment}
-        - Introduced in: -
+        - Introduced in: {version_info}
         """
         return fallback
     

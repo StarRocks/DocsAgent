@@ -15,11 +15,12 @@
 """Git operations for committing and pushing documentation changes"""
 
 import os
+import re
 import requests
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
-from git import Repo, InvalidGitRepositoryError
+from git import Repo, InvalidGitRepositoryError, GitCommandError
 from loguru import logger
 
 
@@ -444,3 +445,99 @@ Updated {len(changed_files)} file(s):
                 logger.debug(f"Returned to branch: {return_to_branch}")
         except Exception as e:
             logger.warning(f"Failed to cleanup: {e}")
+    
+    # ============ Version Tracking Methods ============
+    
+    def get_release_tags(self, pattern: str = r'^\d+\.\d+\.\d+$') -> List[str]:
+        """
+        Get all release tags matching the pattern (x.y.z format).
+        
+        Args:
+            pattern: Regex pattern to filter tags (default: x.y.z format)
+        
+        Returns:
+            List of tag names sorted by version number
+            
+        Example:
+            >>> git_op.get_release_tags()
+            ['3.0.0', '3.0.1', '3.0.2', ..., '3.3.13']
+        """
+        if not self.repo:
+            raise RuntimeError("Repository not initialized. Call validate_repository() first.")
+        
+        try:
+            all_tags = [tag.name for tag in self.repo.tags]
+            
+            # Filter tags by pattern
+            regex = re.compile(pattern)
+            release_tags = []
+            
+            for tag in all_tags:
+                normalized = tag.lstrip('v')
+                if regex.match(normalized):
+                    release_tags.append(normalized)
+            
+            # Sort by version number
+            release_tags.sort(key=lambda v: [int(x) for x in v.split('.')])
+            
+            logger.debug(f"Found {len(release_tags)} release tags")
+            return release_tags
+            
+        except Exception as e:
+            logger.error(f"Failed to get release tags: {e}")
+            raise
+    
+    def get_file_at_tag(self, tag: str, file_path: str) -> Optional[str]:
+        """
+        Get file content at a specific tag.
+        
+        Args:
+            tag: Tag name (e.g., '3.3.0' or 'v3.3.0')
+            file_path: Relative path to file from repo root
+        
+        Returns:
+            File content as string, or None if file doesn't exist at that tag
+            
+        Example:
+            >>> content = git_op.get_file_at_tag('3.3.0', 'fe/fe-core/.../Config.java')
+        """
+        if not self.repo:
+            raise RuntimeError("Repository not initialized. Call validate_repository() first.")
+        
+        # Normalize tag name (handle both '3.3.0' and 'v3.3.0')
+        tag_with_v = tag if tag.startswith('v') else f'v{tag}'
+        tag_without_v = tag.lstrip('v')
+        
+        # Try both formats
+        for tag_name in [tag_with_v, tag_without_v, tag]:
+            try:
+                content = self.repo.git.show(f"{tag_name}:{file_path}")
+                logger.debug(f"Retrieved {file_path} at tag {tag_name}")
+                return content
+            except GitCommandError:
+                continue
+        
+        logger.debug(f"File {file_path} not found at tag {tag}")
+        return None
+    
+    def get_current_version(self) -> str:
+        """
+        Get current HEAD commit hash (short version).
+        
+        Returns:
+            Short commit hash (7 characters)
+            
+        Example:
+            >>> git_op.get_current_version()
+            'a3f5b2c'
+        """
+        if not self.repo:
+            raise RuntimeError("Repository not initialized. Call validate_repository() first.")
+        
+        try:
+            commit_hash = self.repo.head.commit.hexsha[:7]
+            logger.debug(f"Current version: {commit_hash}")
+            return commit_hash
+        except Exception as e:
+            logger.error(f"Failed to get current version: {e}")
+            raise
