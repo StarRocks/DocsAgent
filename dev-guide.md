@@ -377,39 +377,6 @@ def create_fe_config_pipeline() -> DocGenerationPipeline[ConfigItem]:
     )
 ```
 
-### Key Workflows
-
-#### Extract Metadata
-
-```bash
-# Extract from source code → Save to meta/
-python -m docsagent.main -e -t fe_config
-python -m docsagent.main -e -t variables
-```
-
-#### Generate Documentation
-
-```bash
-# Generate docs with LLM
-python -m docsagent.main -g -t fe_config
-
-# Generate with version tracking for new items
-python -m docsagent.main -g -t fe_config -tv
-
-# Generate and commit to git
-python -m docsagent.main -g -t variables --git-ci --git-pr
-```
-
-#### Full Pipeline
-
-```bash
-# Extract + Generate + Track versions
-python -m docsagent.main -e -g -tv -t be_config
-
-# With git PR creation
-python -m docsagent.main -e -g -tv -t functions --git-ci --git-pr
-```
-
 ### Tech Stack
 
 | Category              | Technology              | Purpose                           |

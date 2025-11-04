@@ -271,16 +271,32 @@ Version tracking results cached in `meta/*.version`:
 }
 ```
 
-## 🤝 Contributing
-
-We welcome contributions! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes with tests
-4. Submit a pull request
-
-See [dev-guide.md](dev-guide.md) for detailed development guidelines.
+### Directory Structure of Output
+```
+output/
+├── en/                                 # English documentation
+│   ├── FE_configuration.md             # FE config consolidated
+│   ├── BE_configuration.md             # BE config consolidated
+│   ├── System_variable.md              # Variables consolidated
+│   └── functions/                      # Function docs
+│       ├── array-functions/
+│       │   ├── array_append.md
+│       │   └── array_concat.md
+│       ├── string-functions/
+│       │   ├── concat.md
+│       │   └── substring.md
+│       └── mathematical-functions/
+│           ├── abs.md
+│           └── sqrt.md
+├── zh/                                 # Chinese documentation (same structure)
+│   ├── FE_configuration.md
+│   └── functions/
+│       └── ...
+└── ja/                                 # Japanese documentation (same structure)
+    ├── FE_configuration.md
+    └── functions/
+        └── ...
+```
 
 ## 📄 License
 
