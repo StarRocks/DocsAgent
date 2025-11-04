@@ -92,7 +92,7 @@ cd DocsAgent
 pip install poetry
 
 # Activate virtual environment
-# the two ways:
+# two ways:
 # 1. manual source the poetry env
 # 2. install shell plugin, using poetry shell 
 $(poetry env activate)
