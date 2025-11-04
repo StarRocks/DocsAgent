@@ -145,7 +145,7 @@ Examples:
     )
     
     parser.add_argument(
-        '-v', '--track-version',
+        '-tv', '--track-version',
         action='store_true',
         help='Enable version tracking for items without version info'
     )
@@ -225,7 +225,7 @@ def extract_meta(args):
 def generate_docs(args):
     """Generate documentation based on type"""
     logger.info("=" * 60)
-    logger.info(f"Generating {args.type.upper()} docs | Without-LLM: {args.without_llm} | include_miss_usage: {args.include_miss_usage} | Limit: {args.limit or 'None'} | Git: {'PR' if args.pr else 'Commit' if args.ci else 'No'}")
+    logger.info(f"Generating {args.type.upper()} docs | SearchCode: {args.force_search_code} | include_miss_usage: {args.include_miss_usage} | TrackVersion: {args.track_version} | Without-LLM: {args.without_llm} | Limit: {args.limit or 'None'} | Git: {'PR' if args.pr else 'Commit' if args.ci else 'No'}")
     logger.info("=" * 60)
     
     if args.pr:

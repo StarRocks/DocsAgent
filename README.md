@@ -14,6 +14,7 @@ An LLM-powered documentation automation tool for StarRocks that automatically ex
 - 📝 **Consistent Styling**: Aligned with official StarRocks documentation style
 - 🔧 **Extensible Architecture**: Generic Protocol-based Pipeline design for easy extension
 - 🛠️ **Tool-Enhanced**: Integrated code search tools for more accurate context
+- 📦 **Version Tracking**: Automatically track when configs/variables/functions were first introduced across branches
 
 ## 📋 Supported Document Types
 
@@ -40,31 +41,33 @@ DocsAgent adopts a **Protocol-based Pipeline architecture** that emphasizes:
 graph TB
     A[Source Code] --> B[Extractor]
     B --> |Meta JSON| C[Meta Files]
-    C --> D[Generator]
-    D --> |LLM| E[English Docs]
-    E --> F[Translation Agent]
-    F --> |LLM| G[Multi-language Docs]
-    G --> H[Persister]
-    H --> I[Git Commit]
-    I --> J[Create PR]
+    C --> D[Version Tracker]
+    D --> |Version Info| E[Generator]
+    E --> |LLM| F[English Docs]
+    F --> G[Translation Agent]
+    G --> |LLM| H[Multi-language Docs]
+    H --> I[Persister]
+    I --> J[Git Commit]
+    J --> K[Create PR]
     
     subgraph "Stage 1: Extraction"
         A
         B
         C
+        D
     end
     
     subgraph "Stage 2: Generation"
-        D
         E
         F
         G
+        H
     end
     
     subgraph "Stage 3: Persistence"
-        H
         I
         J
+        K
     end
 ```
 
@@ -75,6 +78,7 @@ graph TB
 - Python 3.10+
 - Poetry (package manager)
 - StarRocks source code (for metadata extraction)
+- LLM API key (OpenAI/Anthropic/Google)
 
 ### Installation
 
@@ -85,18 +89,23 @@ cd DocsAgent
 
 # Install dependencies
 # `brew install poetry` on mac, or similar on other OS may be needed
-poetry install
+pip install poetry
 
 # Activate virtual environment
-poetry env activate
+# the two ways:
+# 1. manual source the poetry env
+# 2. install shell plugin, using poetry shell 
+$(poetry env activate)
+# poetry shell
+
 
 # Install DocsAgent
-pip install .
+poetry install
 ```
 
 ### Configuration
 
-Copy and edit the configuration file:
+Create configuration file from template:
 
 ```bash
 cp conf/example.conf conf/agent.conf
@@ -109,6 +118,10 @@ Key configuration options:
 STARROCKS_HOME=/path/to/starrocks
 
 # LLM configuration
+# e.g:
+#  openai:gpt-4
+#  anthropic:claude-3-sonnet-20240229
+#  google:gemini-pro
 LLM_MODEL=openai:gpt-4o-mini
 LLM_API_KEY=your_api_key
 
@@ -132,6 +145,10 @@ SR_PASSWORD=
 # Logging
 LOG_DIR=./logs
 LOG_LEVEL=INFO
+
+# Git and GitHub configuration
+GITHUB_TOKEN=  # GitHub personal access token for creating PRs
+GITHUB_REPO=StarRocks/starrocks  # GitHub repository in format 'owner/repo' (e.g., 'StarRocks/starrocks')
 ```
 
 > **Note**: Configuration priority is: Environment variables > Config file > Defaults
@@ -147,13 +164,15 @@ LOG_LEVEL=INFO
 | `-m, --meta`              | Generate metadata without generating docs               |
 | `-t, --type`              | Document type (fe_config/be_config/variables/functions) |
 | `--config`                | Configuration file path                                 |
-| `-f, --force_search_code` | Force code re-search                                    |
-| `-i, --ignore_miss_usage` | Ignore missing usage information                        |
+| `-f, --force_search_code` | Force code re-search and update the item's usage        |
+| `-i, --ignore_miss_usage` | Ignore variable/config when missing usage in code       |
 | `-wl, --without-llm`      | Run without LLM (use existing docs)                     |
 | `-l, --limit`             | Limit number of items to process                        |
-| `--ci`                | Enable Git commit                                       |
-| `--pr`                | Enable Pull Request creation                            |
-| `-v, --track-version`      | Enable track introduced version                           |
+| `--ci`                    | Enable Git commit                                       |
+| `--pr`                    | Enable Pull Request creation                            |
+| `-tv, --track-version`    | Track versions for items (first-time use)           |
+
+### Usage Examples
 
 ```bash
 # Incremental Mode: 
@@ -180,14 +199,14 @@ python -m docsagent.main -g -t fe_config -l 10 --track-version --pr
 python -m docsagent.main -e -t variables
 
 # 2. Generate Variables documentation
-python -m docsagent.main -g -t variables --track-version --ci
+python -m docsagent.main -g -t variables -tv --ci
 
 # Functions
 # 1. Extract Functions meta from documentation
 python -m docsagent.main -e -t variables
 
 # 2. Generate Functions documentation without llm generate
-python -m docsagent.main -g -t variables --track-version -wl
+python -m docsagent.main -g -t variables -tv -wl
 ```
 
 ## 🔧 Development Guide
@@ -195,54 +214,73 @@ For detailed usage, see [dev-guide.md](dev-guide.md)
 
 ## 📊 Output Examples
 
-### Metadata Structure
+### Generated Documentation
 
-Each item is stored as a JSON file in `meta/`:
+Documentation is generated in Markdown format with proper formatting:
+
+```markdown
+## enable_materialized_view
+
+- **Type**: Boolean
+- **Default**: true
+- **Introduced in**: v3.2.0
+- **Description**: Whether to enable materialized view feature...
+```
+
+### Metadata Files
+
+Metadata stored in `meta/` directory:
 
 ```json
-// meta/functions/abs.meta
+// meta/fe_config.meta
 {
-  "name": "abs",
-  "catalog": "mathematical-functions",
-  "signature": ["DOUBLE abs(DOUBLE x)"],
-  "description": "Returns the absolute value",
-  "return_type": "DOUBLE",
-  "documents": {
-    "en": "# abs\n\n## Description\n\nReturns the absolute value...",
-    "zh": "# abs\n\n## 功能\n\n返回绝对值...",
-    "ja": "# abs\n\n## 説明\n\n絶対値を返します..."
-  },
-  "related_functions": ["sign", "floor", "ceil"]
+  "items": [
+    {
+      "name": "enable_materialized_view",
+      "type": "boolean",
+      "default_value": "true",
+      "version": ["v3.2.0"],
+      "catalog": "query-engine",
+      "documents": {
+        "en": "...",
+        "zh": "...",
+        "ja": "..."
+      }
+    }
+  ]
 }
 ```
 
-### Directory Structure of Output
+### Version File Structure
 
+Version tracking results cached in `meta/*.version`:
+
+```json
+{
+  "metadata": {
+    "git_version": "a3f5b2c",
+    "maintained_branches": ["3.2", "3.3", "3.4", "3.5", "4.0"]
+  },
+  "versions": {
+    "enable_materialized_view": {
+      "3.2": "3.2.0",
+      "3.3": "3.3.0",
+      "3.4": "3.4.0"
+    }
+  }
+}
 ```
-output/
-├── en/                                 # English documentation
-│   ├── FE_configuration.md             # FE config consolidated
-│   ├── BE_configuration.md             # BE config consolidated
-│   ├── System_variable.md              # Variables consolidated
-│   └── functions/                      # Function docs
-│       ├── array-functions/
-│       │   ├── array_append.md
-│       │   └── array_concat.md
-│       ├── string-functions/
-│       │   ├── concat.md
-│       │   └── substring.md
-│       └── mathematical-functions/
-│           ├── abs.md
-│           └── sqrt.md
-├── zh/                                 # Chinese documentation (same structure)
-│   ├── FE_configuration.md
-│   └── functions/
-│       └── ...
-└── ja/                                 # Japanese documentation (same structure)
-    ├── FE_configuration.md
-    └── functions/
-        └── ...
-```
+
+## 🤝 Contributing
+
+We welcome contributions! Please follow these steps:
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes with tests
+4. Submit a pull request
+
+See [dev-guide.md](dev-guide.md) for detailed development guidelines.
 
 ## 📄 License
 

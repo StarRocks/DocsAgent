@@ -30,6 +30,7 @@ DocsAgent/
 │   ├── core/               # Core framework
 │   │   ├── protocols.py    # DocumentableItem Protocol
 │   │   ├── pipeline.py     # Generic DocGenerationPipeline[T]
+│   │   ├── version_extractor.py  # Version tracking base class
 │   │   └── __init__.py     
 │   ├── domains/            # Domain implementations
 │   │   ├── models.py       # ConfigItem, FunctionItem, VariableItem
@@ -38,7 +39,8 @@ DocsAgent/
 │   │   │   ├── extractor.py
 │   │   │   ├── generator.py
 │   │   │   ├── persister.py
-│   │   │   └── git_persister.py
+│   │   │   ├── git_persister.py
+│   │   │   └── version_extractor.py  # FE config version tracking
 │   │   ├── be_config/      # BE config domain (same structure)
 │   │   ├── variables/      # Variables domain (same structure)
 │   │   └── functions/      # Functions domain (same structure)
@@ -57,7 +59,7 @@ DocsAgent/
 │   │   ├── code_search.py  # Hyperscan regex search
 │   │   ├── code_tools.py   # Code manipulation
 │   │   ├── file_reader.py  # File operations
-│   │   ├── git_operator.py # Git wrapper
+│   │   ├── git_operator.py # Git wrapper (enhanced for version tracking)
 │   │   └── sr_client.py    # StarRocks MySQL client
 │   └── docs_module/        # Documentation templates
 │       ├── en/
@@ -65,7 +67,11 @@ DocsAgent/
 │       └── ja/
 ├── meta/                   # Extracted metadata
 │   ├── be_config.meta
+│   ├── fe_config.meta
 │   ├── variables.meta
+│   ├── be_config.version   # BE config version cache
+│   ├── fe_config.version   # FE config version cache
+│   ├── variables.version   # Variables version cache
 │   ├── functions/          # Individual function meta files
 │   └── logs/
 ├── output/                 # Generated documentation
@@ -99,13 +105,15 @@ class MyNewItem:
     
     # Required by DocumentableItem protocol
     documents: Dict[str, str] = field(default_factory=dict)
+    version: List[str] = field(default_factory=list)  # Version tracking support
     
     def to_dict(self) -> Dict[str, Any]:
         return {
             'name': self.name,
             'description': self.description,
             'some_field': self.some_field,
-            'documents': self.documents
+            'documents': self.documents,
+            'version': self.version
         }
     
     @classmethod
@@ -115,7 +123,7 @@ class MyNewItem:
 
 #### 2. Create Domain Directory
 
-Create `src/docsagent/domains/mynewtype/` with four modules:
+Create `src/docsagent/domains/mynewtype/` with these modules:
 
 **a) extractor.py** - Extract metadata from source code
 ```python
@@ -148,7 +156,11 @@ class MyNewGenerator:
     
     def generate(self, item: MyNewItem, lang: str) -> str:
         """Generate documentation in specified language"""
-        prompt = f"Generate documentation for {item.name}..."
+        # Include version info in prompt
+        version_info = ", ".join(item.version) if item.version else "-"
+        prompt = f"""Generate documentation for {item.name}
+        Introduced in: {version_info}
+        ..."""
         return self.llm.invoke(prompt)
 ```
 
@@ -185,24 +197,76 @@ class MyNewGitPersister(MyNewPersister):
         self.git_operator = git_operator
 ```
 
+**e) version_extractor.py** - Version tracking (optional but recommended)
+```python
+from pathlib import Path
+from docsagent.core.version_extractor import BaseVersionExtractor
+from docsagent.config import config
+
+class MyNewVersionExtractor(BaseVersionExtractor):
+    """Version tracker for MyNewItem"""
+    
+    def __init__(self):
+        """Initialize with config from settings"""
+        super().__init__(
+            repo_path=config.STARROCKS_HOME,
+            source_files=["path/to/your/source/files.ext"],
+            version_file=Path(config.META_DIR) / "mynewtype.version",
+            item_identifier_field="name"  # or other identifier field
+        )
+    
+    def _extract_all_items_from_content(self, content: str) -> set:
+        """
+        Extract all item names from file content.
+        
+        This is called once per file per tag during version tracking.
+        Use efficient batch extraction (regex, AST parsing, etc.)
+        
+        Returns:
+            Set of item names found in content
+        """
+        item_names = set()
+        # Your extraction logic here (regex, AST, etc.)
+        # Example: pattern = re.compile(r'your_pattern')
+        # for match in pattern.finditer(content):
+        #     item_names.add(match.group(1))
+        return item_names
+```
+
 #### 3. Add to Factory
 
 Update `domains/factory.py`:
 
 ```python
-def create_pipeline(doc_type: str):
-    """Factory function to create pipelines"""
-    if doc_type == 'mynewtype':
-        from docsagent.domains.mynewtype.extractor import MyNewExtractor
-        from docsagent.domains.mynewtype.generator import MyNewGenerator
-        from docsagent.domains.mynewtype.persister import MyNewPersister
-        
-        return {
-            'extractor': MyNewExtractor(),
-            'generator': MyNewGenerator(),
-            'persister': MyNewPersister()
-        }
-    # ... other types
+def create_mynewtype_pipeline():
+    """Create MyNewType documentation pipeline"""
+    from docsagent.domains.mynewtype.extractor import MyNewExtractor
+    from docsagent.domains.mynewtype.generator import MyNewGenerator
+    from docsagent.domains.mynewtype.persister import MyNewPersister
+    from docsagent.domains.mynewtype.git_persister import MyNewGitPersister
+    from docsagent.domains.mynewtype.version_extractor import MyNewVersionExtractor
+    from docsagent.core.pipeline import DocGenerationPipeline
+    from docsagent.agents.translation_agent import TranslationAgent
+    
+    extractor = MyNewExtractor()
+    generator = MyNewGenerator()
+    persister = MyNewPersister()
+    translation_agent = TranslationAgent()
+    
+    # Create version extractor (optional)
+    version_extractor = MyNewVersionExtractor()
+    
+    pipeline = DocGenerationPipeline(
+        extractor=extractor,
+        doc_generator=generator,
+        translation_agent=translation_agent,
+        persister=persister,
+        git_persister=MyNewGitPersister(),
+        version_extractor=version_extractor,  # Inject version extractor
+        item_type_name="mynewtype",
+    )
+    
+    return pipeline
 ```
 
 #### 4. Update CLI
@@ -217,7 +281,134 @@ parser.add_argument(
 )
 ```
 
-That's it! Your new document type will now work with the entire pipeline.
+### Core Components
+
+#### Pipeline (`core/pipeline.py`)
+
+Generic 3-stage pipeline for all document types:
+
+```python
+class DocGenerationPipeline(Generic[T]):
+    """
+    Stage 1: Extract metadata from source code
+    Stage 2: Generate docs with LLM (with optional version tracking)
+    Stage 3: Persist to files or git
+    """
+    def run(self, track_new: bool = False):
+        items = self.extractor.extract()
+        
+        # Optional: Track versions for new items
+        if self.version_extractor and track_new:
+            self.version_extractor.update_item_versions(items, track_new)
+        
+        self.generator.generate(items)
+        self.persister.persist(items)
+```
+
+#### Protocols (`core/protocols.py`)
+
+Duck typing for flexible document types:
+
+```python
+@runtime_checkable
+class DocumentableItem(Protocol):
+    name: str
+    documents: Dict[str, str]
+    version: List[str]  # Optional version tracking
+    
+    def to_dict(self) -> Dict: ...
+    def from_dict(cls, data: Dict) -> Self: ...
+```
+
+#### Version Tracker (`core/version_extractor.py`)
+
+Optional version tracking via git tag scanning:
+- Batch processing with set operations (400+ items/sec)
+- Caches results in `.version` files
+- Smart version display filtering (3 rules)
+- Tracks across recent 5 branches
+
+Implement `_extract_all_items_from_content()` for your domain.
+
+#### Domain Models (`domains/models.py`)
+
+Data classes for each document type:
+
+```python
+@dataclass
+class ConfigItem:
+    name: str
+    value: str
+    default_value: str
+    catalog: str
+    documents: Dict[str, str] = field(default_factory=dict)
+    version: List[str] = field(default_factory=list)  # Version tracking
+
+@dataclass
+class FunctionItem:
+    name: str
+    syntax: str
+    catalog: str
+    documents: Dict[str, str] = field(default_factory=dict)
+    version: List[str] = field(default_factory=list)
+```
+
+#### Agents (`agents/`)
+
+LangGraph-based LLM agents with tool support:
+- **ConfigDocAgent**: Generate config documentation with code search
+- **FunctionsAgent**: Generate function docs with SQL validation
+- **VariablesAgent**: Generate variable documentation
+- **TranslationAgent**: Translate docs to target languages
+
+Each agent includes version info in prompts when available.
+
+#### Factory (`domains/factory.py`)
+
+Creates domain-specific pipelines with all dependencies:
+
+```python
+def create_fe_config_pipeline() -> DocGenerationPipeline[ConfigItem]:
+    return DocGenerationPipeline(
+        extractor=FEConfigExtractor(),
+        generator=FEConfigGenerator(),
+        persister=FEConfigPersister(),
+        version_extractor=FEConfigVersionExtractor()  # Optional
+    )
+```
+
+### Key Workflows
+
+#### Extract Metadata
+
+```bash
+# Extract from source code → Save to meta/
+python -m docsagent.main -e -t fe_config
+python -m docsagent.main -e -t variables
+```
+
+#### Generate Documentation
+
+```bash
+# Generate docs with LLM
+python -m docsagent.main -g -t fe_config
+
+# Generate with version tracking for new items
+python -m docsagent.main -g -t fe_config -tv
+
+# Generate and commit to git
+python -m docsagent.main -g -t variables --git-ci --git-pr
+```
+
+#### Full Pipeline
+
+```bash
+# Extract + Generate + Track versions
+python -m docsagent.main -e -g -tv -t be_config
+
+# With git PR creation
+python -m docsagent.main -e -g -tv -t functions --git-ci --git-pr
+```
 
 ### Tech Stack
 
