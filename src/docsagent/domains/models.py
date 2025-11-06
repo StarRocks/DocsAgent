@@ -42,7 +42,7 @@ CATALOGS_LANGS = {
     'Logging': {'en': 'Logging', 'zh': '日志', 'ja': 'ロギング'},
     'Server': {'en': 'Server', 'zh': '服务器', 'ja': 'サーバー'},
     'Metadata and cluster management': {'en': 'Metadata and cluster management', 'zh': '元数据与集群管理', 'ja': 'メタデータとクラスタ管理'},
-    'User, role, and privilege': {'en': 'User, role, and privilege', 'zh': '用户，角色及权限', 'ja': 'ユーザー、役割、特権'},
+    'User, role, and privilege': {'en': 'User, role, and privilege', 'zh': '用户，角色及权限', 'ja': 'ユーザー、ロール、および権限'},
     'Query engine': {'en': 'Query engine', 'zh': '查询引擎', 'ja': 'クエリエンジン'},
     'Loading': {'en': 'Loading', 'zh': '导入', 'ja': 'ロード'},
     'Loading and unloading': {'en': 'Loading and unloading', 'zh': '导入导出', 'ja': 'ロードとアンロード'},
