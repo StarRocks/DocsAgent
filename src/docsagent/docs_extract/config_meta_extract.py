@@ -177,7 +177,7 @@ class ConfigMetaExtract:
             r'##\s+Understand\s+' + scope + r'\s+[Pp]arameters?\n',  # English: "Understand FE/BE parameters"
             r'##\s+' + scope + r'\s+[Pp]arameter.*[Dd]escription.*\n',  # English alternative
             r'##\s+' + scope + r'\s+参数描述\n',  # Chinese
-            r'##\s+' + scope + r'\s+.*パラメータ.*説明.*\n',  # Japanese
+            r'##\s+' + scope + r'\s+.*パラメータを理解する.*\n',  # Japanese
         ]
         
         configs = []

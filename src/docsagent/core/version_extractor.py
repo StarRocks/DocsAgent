@@ -496,26 +496,38 @@ class BaseVersionExtractor:
         # Rule 3: Otherwise, show all
         return [branch_versions[b] for b in sorted_branches]
     
-    def get_display_versions_for_items(self, item_names: Optional[List[str]] = None) -> Dict[str, List[str]]:
+    def get_display_versions_for_items(
+        self,
+        version_data: Optional[Dict] = None,
+        item_names: Optional[List[str]] = None,
+    ) -> Dict[str, List[str]]:
         """
-        Load version file and compute display versions for items.
-        
+        Compute display versions for given items.
+
         Args:
-            item_names: List of item names to get versions for.
-                       If None, returns for all items in version file.
-        
+            item_names: List of item names to get versions for. If None, process all items.
+            version_data: Optional pre-loaded version data dict with structure:
+                {
+                  "metadata": {"maintained_branches": ["3.0", "3.1", ...]},
+                  "versions": {item_name: {branch: first_version}}
+                }
+                If not provided, it will be loaded from self.version_file.
+
         Returns:
             Dict mapping item_name → display_versions
             e.g., {"enable_xxx": ["3.0.11", "3.1.1", "3.2.5"]}
         """
-        version_data = self.load_version_file()
+        # Allow caller to pass in-memory version_data (avoids re-reading the file)
+        if version_data is None:
+            version_data = self.load_version_file()
+
         raw_versions = version_data.get("versions", {})
         maintained_branches = version_data.get("metadata", {}).get("maintained_branches")
-        
-        result = {}
-        
+
+        result: Dict[str, List[str]] = {}
+
         items_to_process = item_names if item_names else list(raw_versions.keys())
-        
+
         for item_name in items_to_process:
             if item_name in raw_versions:
                 branch_versions = raw_versions[item_name]
@@ -523,5 +535,5 @@ class BaseVersionExtractor:
                 result[item_name] = display_versions
             else:
                 result[item_name] = []
-        
+
         return result

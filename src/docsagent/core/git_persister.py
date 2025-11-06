@@ -94,7 +94,7 @@ class GitPersister:
                 return False
             
             if not changed_files:
-                logger.info("No files were modified, skipping PR creation")
+                logger.info("Created Pull Request: No files were modified, skipping PR creation")
                 return True
             
             logger.info(f"Committed {len(changed_files)} modified file(s)")
