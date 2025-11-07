@@ -385,22 +385,44 @@ Updated {len(changed_files)} file(s):
             user_response.raise_for_status()
             user_login = user_response.json().get("login")
             
-            # For cross-repository PRs (from fork), head format should be "username:branch"
-            # For same-repository PRs, just use "branch"
-            # Check if current repo is a fork by comparing with target repo
+            # Determine head format based on repository type:
+            # - Fork repo (origin owner != target owner): use "fork_owner:branch"
+            # - Same repo (origin owner == target owner): use "branch"
             try:
                 origin_url = self.repo.remote('origin').url
-                if user_login and user_login.lower() not in github_repo.lower().split('/')[0].lower():
-                    # This is likely a fork, use "username:branch" format
-                    head_ref = f"{user_login}:{head_branch}"
-                    logger.debug(f"Using cross-fork head reference: {head_ref}")
+                logger.info(f"Origin URL: {origin_url}")
+                logger.info(f"Target repo: {github_repo}")
+                
+                # Parse origin owner from URL (support both SSH and HTTPS, with or without token)
+                origin_owner = None
+                if 'github.com' in origin_url:
+                    if origin_url.startswith('git@'):
+                        # SSH: git@github.com:username/repo.git
+                        origin_owner = origin_url.split(':')[1].split('/')[0]
+                    else:
+                        # HTTPS: https://[token@]github.com/username/repo.git
+                        # Remove token part if present
+                        url_without_token = origin_url.split('@github.com/')[-1] if '@github.com/' in origin_url else origin_url.split('github.com/')[-1]
+                        origin_owner = url_without_token.split('/')[0]
+                
+                target_owner = github_repo.split('/')[0]
+                
+                logger.info(f"Parsed - Origin owner: {origin_owner}, Target owner: {target_owner}")
+                
+                # Determine if it's a fork by comparing owners
+                if origin_owner and origin_owner.lower() != target_owner.lower():
+                    # Case 1: Fork repository - use "fork_owner:branch" format
+                    head_ref = f"{origin_owner}:{head_branch}"
+                    logger.info(f"✓ Detected FORK repo - Creating PR from fork: {head_ref} -> {github_repo}:{base}")
                 else:
-                    # Same repository, just use branch name
+                    # Case 2: Same repository - just use branch name
                     head_ref = head_branch
-                    logger.debug(f"Using same-repo head reference: {head_ref}")
+                    logger.info(f"✓ Detected SAME repo - Creating PR in same repo: {head_ref} -> {base}")
             except Exception as e:
-                logger.warning(f"Could not determine fork status, using username:branch format: {e}")
+                logger.error(f"Failed to determine fork status: {e}")
+                # Fallback: try username:branch if we have user login
                 head_ref = f"{user_login}:{head_branch}" if user_login else head_branch
+                logger.warning(f"Using fallback head format: {head_ref}")
             
             # GitHub API endpoint
             api_url = f"https://api.github.com/repos/{github_repo}/pulls"
@@ -412,7 +434,7 @@ Updated {len(changed_files)} file(s):
                 "base": base
             }
             
-            logger.debug(f"Creating PR with data: {data}")
+            logger.debug(f"Full PR data: {data}")
             
             # Create PR
             response = requests.post(api_url, json=data, headers=headers)

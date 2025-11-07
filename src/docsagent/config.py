@@ -71,7 +71,9 @@ class AppConfig(BaseSettings):
     
     # Git and GitHub configuration
     GITHUB_TOKEN: str = ''  # GitHub personal access token for creating PRs
-    GITHUB_REPO: str = 'StarRocks/starrocks'  # GitHub repository in format 'owner/repo' (e.g., 'StarRocks/starrocks')
+    GITHUB_REPO: str = 'StarRocks/starrocks'  # Target GitHub repository in format 'owner/repo' (e.g., 'StarRocks/starrocks')
+
+
     
     
     @property
