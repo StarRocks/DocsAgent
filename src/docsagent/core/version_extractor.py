@@ -484,12 +484,18 @@ class BaseVersionExtractor:
             return [branch_versions[sorted_branches[0]]]
         
         # Rule 2: If config exists in consecutive branches up to the highest maintained branch
+        # Check if the actual branches are consecutive (no gaps between them)
         if highest_branch == highest_maintained:
-            # Check if branches are consecutive
-            expected_branches = [b for b in maintained_branches if b <= highest_branch]
-            actual_branches = [b for b in sorted_branches if b <= highest_branch]
+            # Check if sorted_branches are consecutive in the maintained_branches list
+            is_consecutive = True
+            for i in range(len(sorted_branches) - 1):
+                current_idx = maintained_branches.index(sorted_branches[i])
+                next_idx = maintained_branches.index(sorted_branches[i + 1])
+                if next_idx - current_idx != 1:
+                    is_consecutive = False
+                    break
             
-            if set(expected_branches) == set(actual_branches):
+            if is_consecutive:
                 # Consecutive to highest, exclude the highest branch
                 return [branch_versions[b] for b in sorted_branches[:-1]]
         

@@ -378,4 +378,4 @@ class CodeFileSearch:
                     keyword_matches[keyword].append(match)
             
         except Exception as e:
-            logger.error(f"Error searching file {file_path}: {e}")
+            logger.warning(f"Error searching file {file_path}: {e}")
