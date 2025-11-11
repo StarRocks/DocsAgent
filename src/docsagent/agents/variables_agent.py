@@ -15,7 +15,8 @@
 """
 VariableDocAgent: Generate English documentation for session/global variables using LangGraph
 """
-from typing import TypedDict, Sequence
+from typing import TypedDict, Sequence, Annotated
+import operator
 from loguru import logger
 
 from langgraph.graph import StateGraph, END
@@ -32,7 +33,7 @@ from docsagent.domains.models import VariableItem
 class VariableDocState(TypedDict):
     """State for variable documentation generation workflow"""
     variable: VariableItem          # Input: variable item
-    messages: Sequence[BaseMessage] # Message history for tool-enabled workflow
+    messages: Annotated[Sequence[BaseMessage], operator.add] # Message history for tool-enabled workflow (auto-append)
     prompt: str                     # Prepared prompt for LLM
     raw_output: str                 # Raw LLM output
     documentation: str              # Final formatted documentation
@@ -116,16 +117,18 @@ class VariableDocAgent:
         
         # Build user prompt with config information
         prompt = self._build_user_prompt(variable)
-        state['prompt'] = prompt
         
         # Initialize messages for tool-enabled workflow
+        # Note: messages field uses operator.add, so we return a list that will be appended
         system_prompt = self._build_system_prompt()
-        state['messages'] = [
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=prompt)
-        ]
-        
-        return state
+        return {
+            **state,
+            'prompt': prompt,
+            'messages': [
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=prompt)
+            ]
+        }
     
     def _generate(self, state: VariableDocState) -> VariableDocState:
         """
@@ -139,20 +142,23 @@ class VariableDocAgent:
             # Use messages for tool-enabled workflow
             messages = state['messages']
             response = self.llm_with_tools.invoke(messages)
-            state['messages'].append(response)
+            
+            # Return response in messages (will be auto-appended due to operator.add)
+            result = {'messages': [response]}
             
             # Extract content if this is final response (no tool calls)
             if not hasattr(response, 'tool_calls') or not response.tool_calls:
-                state['raw_output'] = response.content.strip()
-                
-            logger.debug(f"Generated {len(state.get('raw_output', ''))} characters")
+                result['raw_output'] = response.content.strip()
+                logger.debug(f"Generated {len(result['raw_output'])} characters")
             
+            return result
+                
         except Exception as e:
             logger.error(f"LLM generation failed: {e}")
             # Fallback: generate basic documentation
-            state['raw_output'] = self.generate_fallback_doc(state['variable'])
-        
-        return state
+            return {
+                'raw_output': self.generate_fallback_doc(state['variable'])
+            }
     
     def _format(self, state: VariableDocState) -> VariableDocState:
         """
@@ -205,14 +211,12 @@ class VariableDocAgent:
         4. Generate documentation based on your findings
 
         Output only the documentation content, no additional commentary. The output format should be like this:
-        // document start, just to mark that the document starts and doesn't need to be included in the output.
         ### ${show Name} ${when scope is global, add "(Global)"}
 
         * **Description**: ${description}
         * **Default**: ${default value}
         * **Data Type**: ${variable type}
         * **Introduced in**: ${`Introduced in` from metadata, use '-' if not available}
-        // document end, just to mark that the document ends and doesn't need to be included in the output.
         
         output example:
         ### tablet_internal_parallel_mode
@@ -272,9 +276,8 @@ class VariableDocAgent:
         name = variable.name
         
         if not raw.startswith('#'):
-            formatted = f"### {name}\n\n{raw}"
-        else:
-            formatted = raw
+            logger.warning(f"Raw output missing header for {name}, adding header")
+        formatted = raw
         
         return formatted.strip()
     

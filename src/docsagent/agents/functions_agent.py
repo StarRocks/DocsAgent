@@ -15,7 +15,8 @@
 """
 FunctionDocAgent: Generate English documentation for SQL functions using LangGraph
 """
-from typing import TypedDict, Sequence
+from typing import TypedDict, Sequence, Annotated
+import operator
 from loguru import logger
 
 from langgraph.graph import StateGraph, END
@@ -32,7 +33,7 @@ from docsagent.domains.models import FunctionItem, FUNCTION_CATALOGS
 class FunctionDocState(TypedDict):
     """State for function documentation generation workflow"""
     func: FunctionItem              # Input: function item
-    messages: Sequence[BaseMessage] # Message history for tool-enabled workflow
+    messages: Annotated[Sequence[BaseMessage], operator.add] # Message history for tool-enabled workflow (auto-append)
     prompt: str                     # Prepared prompt for LLM
     raw_output: str                 # Raw LLM output
     documentation: str              # Final formatted documentation
@@ -120,16 +121,18 @@ class FunctionDocAgent:
         
         # Build user prompt with function information
         prompt = self._build_user_prompt(func)
-        state['prompt'] = prompt
         
         # Initialize messages for tool-enabled workflow
+        # Note: messages field uses operator.add, so we return a list that will be appended
         system_prompt = self._build_system_prompt()
-        state['messages'] = [
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=prompt)
-        ]
-        
-        return state
+        return {
+            **state,
+            'prompt': prompt,
+            'messages': [
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=prompt)
+            ]
+        }
 
     def _generate(self, state: FunctionDocState) -> FunctionDocState:
         """
@@ -143,20 +146,21 @@ class FunctionDocAgent:
             # Use messages for tool-enabled workflow
             messages = state['messages']
             response = self.llm_with_tools.invoke(messages)
-            state['messages'].append(response)
+            
+            # Return response in messages (will be auto-appended due to operator.add)
+            result = {'messages': [response]}
             
             # Extract content if this is final response (no tool calls)
             if not hasattr(response, 'tool_calls') or not response.tool_calls:
-                state['raw_output'] = response.content.strip()
-                
-            logger.debug(f"Generated {len(state.get('raw_output', ''))} characters")
+                result['raw_output'] = response.content.strip()
+                logger.debug(f"Generated {len(result['raw_output'])} characters")
             
+            return result
+                
         except Exception as e:
             logger.error(f"LLM generation failed: {e}")
             # Fallback: generate basic documentation
             raise e
-        
-        return state
     
     def _format(self, state: FunctionDocState) -> FunctionDocState:
         """

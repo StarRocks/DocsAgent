@@ -54,12 +54,12 @@ class VariablesPersister(DocPersister):
         for lang in target_langs:
             logger.debug(f"Generating {lang} docs...")
             for var in variables:
-                if lang in var.documents:
+                if lang in var.documents and var.documents[lang].strip():
                     # if var.invisible:
                     #     target_docs[lang] += f"<div style='display: none'>\n{var.documents[lang]}\n</div>\n\n"
                     #     logger.debug(f"Adding invisible variable to docs: {var.show}")
                     # else:
-                    target_docs[lang] += var.documents[lang] + "\n\n"
+                    target_docs[lang] += var.documents[lang].strip() + "\n\n"
                     logger.debug(f"Adding variable to docs: {var.show}")
                         
             self._apply_template_and_save(target_docs, lang, output_dir)

@@ -49,8 +49,8 @@ class FEConfigPersister(DocPersister):
                 target_docs[lang] += f"### {CATALOGS_LANGS[catalog][lang]}\n\n"
                 
                 for config in catalogs[catalog]:
-                    if lang in config.documents:
-                        target_docs[lang] += config.documents[lang] + "\n\n"
+                    if lang in config.documents and config.documents[lang].strip():
+                        target_docs[lang] += config.documents[lang].strip() + "\n\n"
                     else:
                         logger.warning(f"Missing {lang} doc: {config.name}")
             

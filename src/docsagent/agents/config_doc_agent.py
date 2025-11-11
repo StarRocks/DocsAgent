@@ -16,6 +16,7 @@
 ConfigDocAgent: Generate English documentation for configuration items using LangGraph
 """
 from typing import TypedDict, Annotated, Sequence
+import operator
 from loguru import logger
 
 from langgraph.graph import StateGraph, END
@@ -32,7 +33,7 @@ from docsagent.domains.models import ConfigItem, VALID_CATALOGS, is_valid_catalo
 class ConfigDocState(TypedDict):
     """State for config documentation generation workflow"""
     config: ConfigItem              # Input: configuration item
-    messages: Sequence[BaseMessage] # Message history for tool-enabled workflow
+    messages: Annotated[Sequence[BaseMessage], operator.add] # Message history for tool-enabled workflow (auto-append)
     prompt: str                     # Prepared prompt for LLM
     raw_output: str                 # Raw LLM output
     documentation: str              # Final formatted documentation
@@ -121,13 +122,15 @@ class ConfigDocAgent:
         state['prompt'] = prompt
         
         # Initialize messages for tool-enabled workflow
+        # Note: messages field uses operator.add, so we return a list that will be appended
         system_prompt = self._build_system_prompt()
-        state['messages'] = [
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=prompt)
-        ]
-        
-        return state
+        return {
+            **state,
+            'messages': [
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=prompt)
+            ]
+        }
     
     def _generate(self, state: ConfigDocState) -> ConfigDocState:
         """
@@ -141,20 +144,23 @@ class ConfigDocAgent:
             # Use messages for tool-enabled workflow
             messages = state['messages']
             response = self.llm_with_tools.invoke(messages)
-            state['messages'].append(response)
+            
+            # Return response in messages (will be auto-appended due to operator.add)
+            result = {'messages': [response]}
             
             # Extract content if this is final response (no tool calls)
             if not hasattr(response, 'tool_calls') or not response.tool_calls:
-                state['raw_output'] = response.content.strip()
-                
-            logger.debug(f"Generated {len(state.get('raw_output', ''))} characters")
+                result['raw_output'] = response.content.strip()
+                logger.debug(f"Generated {len(result['raw_output'])} characters")
             
+            return result
+                
         except Exception as e:
             logger.error(f"LLM generation failed: {e}")
             # Fallback: generate basic documentation
-            state['raw_output'] = self.generate_fallback_doc(state['config'])
-        
-        return state
+            return {
+                'raw_output': self.generate_fallback_doc(state['config'])
+            }
     
     def _format(self, state: ConfigDocState) -> ConfigDocState:
         """
@@ -208,7 +214,6 @@ class ConfigDocAgent:
         4. Generate documentation based on your findings
 
         Output only the documentation content, no additional commentary. The output format should be like this:
-        // document start, just to marked the document is start and doesn't need to be included in the output.
         ##### ${config name} 
 
         - Default: ${default value}
@@ -217,7 +222,6 @@ class ConfigDocAgent:
         - Is mutable: ${is mutable}
         - Description: ${description}
         - Introduced in: ${`Introduced in` info from metadata, use '-' if not available}
-        // document end, just to marked the document is end and doesn't need to be included in the output.
         
         output example:
         ##### black_host_history_sec
@@ -277,10 +281,9 @@ class ConfigDocAgent:
         name = config.name
         
         if not raw.startswith('#'):
-            formatted = f"## {name}\n\n{raw}"
-        else:
-            formatted = raw
+            logger.warning(f"Raw output missing header for {name}, adding header")
         
+        formatted = raw
         return formatted.strip()
     
     def _build_classify_system_prompt(self) -> str:
