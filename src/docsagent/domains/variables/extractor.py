@@ -264,10 +264,14 @@ class VariablesExtractor(ItemExtractor):
         """
         Generate search keywords for a variable item.
         
+        Strategy:
+        1. Try to find actual setter/getter method names from source code
+        2. Fallback to generated names based on variable name
+        
         Includes:
         - Direct variable name reference
-        - Setter method (camelCase)
-        - Getter method (camelCase)
+        - Setter method (actual or generated)
+        - Getter method (actual or generated)
         - Underscore naming convention
         
         Args:
@@ -278,19 +282,30 @@ class VariablesExtractor(ItemExtractor):
         """
         keywords = []
         var_name = item.name
-        camel_case = self._to_camel_case(var_name, capitalize_first=True)
-                
-        # 1. Direct reference: variableName
-        keywords.append("Variable." + var_name)
-
-        # 2. Setter method: setVariableName
-        keywords.append(f"set{camel_case}")
-
-        # 3. Getter method: getVariableName or isVariableName (for boolean)
-        if item.type.lower() == 'boolean':
-            keywords.append(f"is{camel_case}")
-        keywords.append(f"get{camel_case}")
-        # 4. Underscore naming: variable_name
+        
+        # 1. Direct reference: Variable.variableName
+        keywords.append(f"Variable.{var_name}")
+        
+        # 2. Try to find actual setter/getter methods from source code
+        actual_methods = self._find_actual_methods(var_name)
+        
+        if actual_methods:
+            # Use actual method names found in source
+            keywords.extend(actual_methods)
+            logger.debug(f"Found actual methods for {var_name}: {actual_methods}")
+        else:
+            # Fallback: Generate method names based on variable name
+            camel_case = self._to_camel_case(var_name, capitalize_first=True)
+            
+            # Setter method: setVariableName
+            keywords.append(f"set{camel_case}")
+            
+            # Getter method: getVariableName or isVariableName (for boolean)
+            if item.type.lower() == 'boolean':
+                keywords.append(f"is{camel_case}")
+            keywords.append(f"get{camel_case}")
+        
+        # 3. Underscore naming: variable_name
         keywords.append(self._to_snake_case(var_name))
         
         # Remove duplicates while preserving order
@@ -324,6 +339,85 @@ class VariablesExtractor(ItemExtractor):
                 result.append('_')
             result.append(char.lower())
         return ''.join(result)
+    
+    def _find_actual_methods(self, var_name: str) -> List[str]:
+        """
+        Find actual setter/getter method names for a variable from source code.
+        
+        Strategy:
+        1. Use simple line-based search instead of complex regex
+        2. Look for patterns like "this.varName =" and "return this.varName"
+        3. Extract method name from the method signature above
+        
+        Example:
+        - Variable field: private boolean cboJSONV2Rewrite
+        - Setter: public void setEnableJSONV2Rewrite(...) { this.cboJSONV2Rewrite = ...; }
+        - Getter: public boolean isEnableJSONV2Rewrite() { return this.cboJSONV2Rewrite; }
+        
+        Args:
+            var_name: The Java field name (e.g., cboJSONV2Rewrite)
+            
+        Returns:
+            List of actual method names found, or empty list if not found
+        """
+        method_names = []
+        
+        for file_path in self.code_paths:
+            if 'variable.java' not in file_path.lower():
+                continue
+                
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+                
+                # Search line by line for variable references
+                for i, line in enumerate(lines):
+                    # Check for setter pattern: this.varName = 
+                    if f'this.{var_name}' in line and '=' in line:
+                        method_name = self._extract_method_name_backward(lines, i)
+                        if method_name and method_name not in method_names:
+                            method_names.append(method_name)
+                            logger.debug(f"Found setter for {var_name}: {method_name}")
+                    
+                    # Check for getter pattern: return this.varName or return varName
+                    if 'return' in line and (f'this.{var_name}' in line or f' {var_name};' in line or f' {var_name} ' in line):
+                        method_name = self._extract_method_name_backward(lines, i)
+                        if method_name and method_name not in method_names:
+                            method_names.append(method_name)
+                            logger.debug(f"Found getter for {var_name}: {method_name}")
+                    
+            except Exception as e:
+                logger.debug(f"Error searching methods for {var_name} in {file_path}: {e}")
+                continue
+        
+        return method_names
+    
+    def _extract_method_name_backward(self, lines: List[str], start_line: int) -> Optional[str]:
+        """
+        Extract method name by searching backward from a given line.
+        
+        Looks for the nearest method signature like:
+        - public void methodName(...)
+        - public Type methodName(...)
+        
+        Args:
+            lines: All lines of the file
+            start_line: Line index to start searching backward from
+            
+        Returns:
+            Method name if found, None otherwise
+        """
+        # Search backward up to 20 lines (should cover most method signatures)
+        for i in range(start_line, max(0, start_line - 20), -1):
+            line = lines[i].strip()
+            
+            # Look for public method signature
+            # Pattern: public <returnType> methodName(...)
+            method_match = re.match(r'public\s+(?:\w+(?:<[^>]+>)?)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(', line)
+            if method_match:
+                return method_match.group(1)
+        
+        return None
     
     def get_statistics(self, items: List[VariableItem]) -> dict:
         """Calculate basic statistics"""
