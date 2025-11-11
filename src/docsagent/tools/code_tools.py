@@ -71,19 +71,40 @@ def extract_cstyle_comment_before_position(content: str, position: int) -> str:
 def parse_equals_pair(params_str: str) -> Dict[str, str]:
     """Parse annotation parameters like 'mutable = false, comment = "text"'
     
+    Handles:
+    - Multiline string concatenation with + operator (Java style)
+    - Quoted strings containing single quotes
+    - Boolean and numeric values
+    
     Returns dict with parameter names and values (strings with quotes removed)
     """
     params = {}
     if not params_str:
         return params
     
-    # Pattern to match key=value pairs
-    # Handles: key = "value", key = 'value', key = true, key = false, key = 123
-    param_pattern = re.compile(r'(\w+)\s*=\s*(["\']?)([^,]*?)\2(?:,|$)')
+    # Normalize multiline strings by removing + concatenation
+    # Convert: "part1" +\n "part2" -> "part1part2"
+    normalized = re.sub(r'"\s*\+\s*\n\s*"', '', params_str)
+    # Normalize whitespace
+    normalized = re.sub(r'\n\s+', ' ', normalized)
     
-    for match in param_pattern.finditer(params_str):
+    # First, extract all double-quoted string values
+    # Pattern handles escaped quotes inside strings: \"
+    string_pattern = re.compile(r'(\w+)\s*=\s*"((?:[^"\\]|\\.)*)"')
+    for match in string_pattern.finditer(normalized):
         key = match.group(1).strip()
-        value = match.group(3).strip()
+        value = match.group(2).strip()
+        # Unescape \" -> "
+        value = value.replace(r'\"', '"')
         params[key] = value
+    
+    # Then extract remaining non-quoted values (booleans, numbers, etc.)
+    # Only process keys we haven't seen yet to avoid overriding quoted strings
+    simple_pattern = re.compile(r'(\w+)\s*=\s*([^,"]+)')
+    for match in simple_pattern.finditer(normalized):
+        key = match.group(1).strip()
+        if key not in params:  # Don't override quoted strings
+            value = match.group(2).strip()
+            params[key] = value
     
     return params    

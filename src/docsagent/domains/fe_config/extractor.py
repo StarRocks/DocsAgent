@@ -79,14 +79,21 @@ class FEConfigExtractor(ItemExtractor):
         
         @ConfField(mutable = false, comment = "description")
         public static String sys_log_format = "plaintext";
+        
+        Handles multiline comment strings with + concatenation:
+        @ConfField(mutable = true, comment = "line1" +
+                "line2" +
+                "line3")
+        public static String param = "";
         """
         items: List[ConfigItem] = []
         
         # Pattern to match @ConfField annotation followed by static field declaration
         # Captures: 1) annotation params (optional), 2) field type, 3) field name, 4) default value
         # Supports all Java field modifiers in any order
+        # IMPORTANT: Use .*? (non-greedy) to properly handle parentheses in comment strings
         pattern = re.compile(
-            r'@ConfField\s*(?:\(([^)]*)\))?\s*'  # @ConfField with optional parameters
+            r'@ConfField\s*(?:\((.*?)\))?\s*'  # @ConfField with optional parameters (non-greedy!)
             r'(?:@\w+(?:\([^)]*\))?\s*)*'  # Skip other annotations like @Deprecated
             r'(?:(?:public|protected|private|static|final|transient|volatile|synchronized|native|strictfp)\s+)*'  # All modifiers in any order
             r'([\w\[\]<>,\s]+?)\s+'  # Type (including generics, arrays)
