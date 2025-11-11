@@ -266,6 +266,9 @@ class ConfigMetaExtract:
         if not block.strip():
             return None
         
+        # Remove EditionSpecific component tags
+        block = re.sub(r'<EditionSpecific(?:FE|BE)Item\s*/>', '', block, flags=re.IGNORECASE)
+        
         # Extract properties from bullet points
         props = self._extract_properties(block)
         
