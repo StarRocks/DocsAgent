@@ -13,19 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-StarRocks Client Tool for executing READ-ONLY SQL queries
+"""StarRocks client for SQL execution via MySQL protocol (READ ONLY)"""
 
-This tool provides a safe, read-only interface for agents to query StarRocks.
-ONLY SELECT queries (with functions and constants) are allowed.
-"""
-
-from typing import Optional, List, Dict, Any
 import re
 import mysql.connector
-from mysql.connector import Error
+from typing import Any, Dict, List, Optional, Tuple
 from loguru import logger
 from langchain_core.tools import tool
+from mysql.connector import Error
+
+from docsagent.tools import stats
 
 
 class StarRocksClient:
@@ -314,6 +311,9 @@ def execute_sql(
         >>> execute_sql("SELECT * FROM information_schema.schemata LIMIT 5")
     """
     try:
+        # Record tool call
+        stats.record_tool_call("execute_sql")
+        
         # Create client and execute query
         with StarRocksClient(host, port, user, password) as client:
             result = client.execute_select_query(sql, max_rows=max_rows)

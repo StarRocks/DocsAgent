@@ -30,6 +30,7 @@ from langchain_core.tools import tool
 
 from docsagent.tools.file_reader import FileReader, read_file_lines
 from docsagent.tools.code_search import CodeFileSearch
+from docsagent.tools import stats
 
 
 # ============================================================================
@@ -69,6 +70,9 @@ def read_file(
         >>> read_file('/path/to/file.py', start_line=50)
     """
     try:
+        # Record tool call
+        stats.record_tool_call("read_file")
+        
         # Get file info first
         path_obj = Path(file_path)
         if not path_obj.exists():
@@ -149,6 +153,9 @@ def search_code(
         >>> search_code(['init'], ['/path/to/'], context_lines=5)
     """
     try:
+        # Record tool call
+        stats.record_tool_call("search_code")
+        
         if not file_paths:
             return "Error: file_paths is required"
         

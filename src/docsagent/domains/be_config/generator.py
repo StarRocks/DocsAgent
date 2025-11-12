@@ -21,6 +21,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from docsagent.core.protocols import DocGenerator
 from docsagent.domains.models import ConfigItem
 from docsagent.agents.config_doc_agent import ConfigDocAgent
+from docsagent.tools import stats
 
 
 class BEConfigDocGenerator(DocGenerator):
@@ -35,15 +36,23 @@ class BEConfigDocGenerator(DocGenerator):
         logger.debug(f"Generating doc: {item.name}")
         
         try:
+            # Record agent call
+            stats.record_agent_call("ConfigDocAgent")
+            
             doc = self.agent.generate(item)
             
             if not doc or not doc.strip():
                 logger.warning(f"Empty doc for {item.name}, using fallback")
                 return self.agent.generate_fallback_doc(item)
             
+            # Record successful generation
+            stats.record_document("en")
+            stats.record_generated_item(item.name)
+            
             logger.debug(f"Generated {len(doc)} chars for {item.name}")
             return doc
             
         except Exception as e:
+            stats.record_error(f"Generation failed for {item.name}: {e}")
             logger.error(f"Generation failed for {item.name}: {e}")
             return self.agent.generate_fallback_doc(item)

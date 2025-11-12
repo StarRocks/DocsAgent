@@ -21,6 +21,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from docsagent.agents.llm import get_default_chat_model
+from docsagent.tools import stats
 
 
 class TranslationAgent:
@@ -66,6 +67,9 @@ class TranslationAgent:
         logger.debug(f"Translating text to {target_lang} ({len(text)} chars)")
         
         try:
+            # Record agent call with language suffix
+            stats.record_agent_call(f"TranslationAgent_{target_lang}")
+            
             system_prompt = self._build_system_prompt(target_lang)
             user_prompt = self._build_user_prompt(text, target_lang, preserve_markers)
             
@@ -80,10 +84,14 @@ class TranslationAgent:
             # Post-process: ensure all field names are translated
             translated = self._post_process_field_names(translated, target_lang)
             
+            # Record successful translation
+            stats.record_document(target_lang)
+            
             logger.debug(f"Translation completed: {len(text)} → {len(translated)} chars")
             return translated
             
         except Exception as e:
+            stats.record_error(f"Translation to {target_lang} failed: {e}")
             logger.error(f"Translation failed: {e}")
             # Re-raise exception to prevent storing failed translation
             raise RuntimeError(f"Translation to {target_lang} failed: {str(e)}") from e

@@ -28,6 +28,7 @@ from docsagent.domains import factory
 from docsagent.docs_extract.config_meta_extract import ConfigMetaExtract
 from docsagent.docs_extract.function_meta_extract import FunctionMetaExtract
 from docsagent.docs_extract.variables_meta_extract import VariablesMetaExtract
+from docsagent.tools import stats
 
 
 def init_logger(log_dir: str = "logs", max_size: str = "10 MB", log_level: str = "INFO"):
@@ -190,32 +191,43 @@ def extract_meta(args):
     logger.info(f"Extracting {args.type.upper()} metadata")
     logger.info("=" * 60)
     
+    # Initialize statistics
+    stats.reset_stats(doc_type=args.type)
+    
     try:
         if args.type in ['fe_config', 'be_config']:
             # Extract config metadata
             extractor = ConfigMetaExtract()
             if args.type == 'fe_config':
                 configs = extractor.extract_fe()
+                stats.record_code_items(len(configs))
                 logger.success(f"✓ Extracted {len(configs)} FE configs")
             else:
                 configs = extractor.extract_be()
+                stats.record_code_items(len(configs))
                 logger.success(f"✓ Extracted {len(configs)} BE configs")
         
         elif args.type == 'variables':
             # Extract variables metadata
             extractor = VariablesMetaExtract()
             variables = extractor.extract()
+            stats.record_code_items(len(variables))
             logger.success(f"✓ Extracted {len(variables)} variables")
         
         elif args.type == 'functions':
             # Extract functions metadata
             extractor = FunctionMetaExtract()
             functions = extractor.extract()
+            stats.record_code_items(len(functions))
             logger.success(f"✓ Extracted {len(functions)} functions")
         
         logger.info("=" * 60)
         logger.success("Metadata extraction completed")
         logger.info("=" * 60)
+        
+        # Print and save statistics
+        stats.print_summary()
+        stats.save_stats(Path(config.LOG_DIR) / f"stats_{args.type}_extract.txt")
         
     except Exception as e:
         logger.exception(f"Failed to extract metadata: {e}")
@@ -227,6 +239,9 @@ def generate_docs(args):
     logger.info("=" * 60)
     logger.info(f"Generating {args.type.upper()} docs | SearchCode: {args.force_search_code} | include_miss_usage: {args.include_miss_usage} | TrackVersion: {args.track_version} | Without-LLM: {args.without_llm} | Limit: {args.limit or 'None'} | Git: {'PR' if args.pr else 'Commit' if args.ci else 'No'}")
     logger.info("=" * 60)
+    
+    # Initialize statistics
+    stats.reset_stats(doc_type=args.type)
     
     if args.pr:
         args.ci = True  # Ensure commit is enabled if PR is requested
@@ -274,6 +289,10 @@ def generate_docs(args):
             logger.info(f"  ⊘ Skipped: {result['skipped']}")
         
         logger.info("=" * 60)
+        
+        # Print and save statistics
+        stats.print_summary()
+        stats.save_stats(Path(config.LOG_DIR) / f"stats_{args.type}_generate.txt")
         
     except Exception as e:
         logger.exception(f"Failed to generate documentation: {e}")

@@ -27,6 +27,7 @@ from langchain_core.messages import HumanMessage, SystemMessage, BaseMessage
 from docsagent.agents.llm import get_default_chat_model
 from docsagent.agents.tools import get_all_tools
 from docsagent.domains.models import FunctionItem, FUNCTION_CATALOGS
+from docsagent.tools import stats
 
 
 # Define state schema for the workflow
@@ -146,6 +147,14 @@ class FunctionDocAgent:
             # Use messages for tool-enabled workflow
             messages = state['messages']
             response = self.llm_with_tools.invoke(messages)
+            
+            # Record token usage if available
+            if hasattr(response, 'usage_metadata') and response.usage_metadata:
+                usage = response.usage_metadata
+                input_tokens = getattr(usage, 'input_tokens', 0)
+                output_tokens = getattr(usage, 'output_tokens', 0)
+                if input_tokens or output_tokens:
+                    logger.debug(f"Token usage: input={input_tokens}, output={output_tokens}")
             
             # Return response in messages (will be auto-appended due to operator.add)
             result = {'messages': [response]}

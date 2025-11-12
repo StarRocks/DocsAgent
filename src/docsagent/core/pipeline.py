@@ -61,6 +61,7 @@ from docsagent.core.protocols import (
 from docsagent.core.git_persister import GitPersister
 from docsagent.core.version_extractor import BaseVersionExtractor
 from docsagent.agents.translation_agent import TranslationAgent
+from docsagent.tools import stats
 
 
 # Type variable bound to DocumentableItem
@@ -163,6 +164,9 @@ class DocGenerationPipeline(Generic[T]):
         logger.info(f"[1/6] Extracting {self.item_type_name}s...")
         items = self.extractor.extract(force_search_code, ignore_miss_usage, **kwargs)
         logger.info(f"  ✓ Extracted {len(items)} items")
+        
+        # Record meta items count
+        stats.record_meta_items(len(items))
         
         # Step 1.5: Update item versions (track new if requested, or load from cache)
         if self.version_extractor:
