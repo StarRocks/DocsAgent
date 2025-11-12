@@ -42,12 +42,13 @@ class VariablesPersister(DocPersister):
         
         global_str = ""
         for g in global_variables:
-            # if g.invisible:
-            #     global_str += f"<!-- * {g.show} -->\n"
-            #     logger.debug(f"Adding invisible global variable to list: {g.show}")
-            # else:
-            global_str += f"* {g.show}\n"                
-            logger.debug(f"Adding global variable to list: {g.show}")
+            if g.invisible:
+                # global_str += f"<!-- * {g.show} -->\n"
+                logger.debug(f"Adding invisible global variable to list: {g.show}")
+                continue
+            else:
+                global_str += f"* {g.show}\n"                
+                logger.debug(f"Adding global variable to list: {g.show}")
                 
         target_docs["global"] = global_str
 
@@ -55,12 +56,13 @@ class VariablesPersister(DocPersister):
             logger.debug(f"Generating {lang} docs...")
             for var in variables:
                 if lang in var.documents and var.documents[lang].strip():
-                    # if var.invisible:
-                    #     target_docs[lang] += f"<div style='display: none'>\n{var.documents[lang]}\n</div>\n\n"
-                    #     logger.debug(f"Adding invisible variable to docs: {var.show}")
-                    # else:
-                    target_docs[lang] += var.documents[lang].strip() + "\n\n"
-                    logger.debug(f"Adding variable to docs: {var.show}")
+                    if var.invisible:
+                        # target_docs[lang] += f"<div style='display: none'>\n{var.documents[lang]}\n</div>\n\n"
+                        logger.debug(f"Adding invisible variable to docs: {var.show}")
+                        continue
+                    else:
+                        target_docs[lang] += var.documents[lang].strip() + "\n\n"
+                        logger.debug(f"Adding variable to docs: {var.show}")
                         
             self._apply_template_and_save(target_docs, lang, output_dir)
         
