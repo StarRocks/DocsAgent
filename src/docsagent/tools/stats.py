@@ -101,72 +101,76 @@ class ExecutionStats:
             },
             "errors": self.errors,
         }
-    
-    def print_summary(self):
-        """Print formatted summary to console"""
-        logger.info("=" * 80)
-        logger.info("EXECUTION SUMMARY")
-        logger.info("=" * 80)
-        logger.info(f"Document Type: {self.doc_type}")
-        logger.info(f"Duration: {self.duration():.2f} seconds")
-        logger.info("")
+
+    def get_summary_lines(self) -> List[str]:
+        """Get summary lines as list of strings"""
+        # Build the same content as print_summary
+        lines = []
+        lines.append("=" * 80)
+        lines.append("EXECUTION SUMMARY")
+        lines.append("=" * 80)
+        lines.append(f"Document Type: {self.doc_type}")
+        lines.append(f"Duration: {self.duration():.2f} seconds")
+        lines.append("")
         
         # Item extraction
-        logger.info("ITEM EXTRACTION:")
-        logger.info(f"  ├─ Items from meta files: {self.meta_items_count}")
-        logger.info(f"  ├─ Items from code parsing: {self.code_items_count}")
-        logger.info(f"  └─ Total unique items: {self.total_items}")
-        logger.info("")
+        lines.append("ITEM EXTRACTION:")
+        lines.append(f"  ├─ Items from meta files: {self.meta_items_count}")
+        lines.append(f"  ├─ Items from code parsing: {self.code_items_count}")
+        lines.append(f"  └─ Total unique items: {self.total_items}")
+        lines.append("")
         
         # Document generation
-        logger.info("DOCUMENT GENERATION:")
+        lines.append("DOCUMENT GENERATION:")
         for lang, count in sorted(self.docs_per_language.items()):
-            logger.info(f"  ├─ {lang.upper()}: {count} documents")
-        logger.info(f"  └─ Total: {sum(self.docs_per_language.values())} documents")
-        logger.info("")
+            lines.append(f"  ├─ {lang.upper()}: {count} documents")
+        lines.append(f"  └─ Total: {sum(self.docs_per_language.values())} documents")
+        lines.append("")
         
         # Agent calls
         if self.agent_calls:
-            logger.info("AGENT INVOCATIONS:")
+            lines.append("AGENT INVOCATIONS:")
             for agent, count in sorted(self.agent_calls.items(), key=lambda x: -x[1]):
                 tokens_info = ""
                 if agent in self.agent_tokens:
                     tokens = self.agent_tokens[agent]
                     tokens_info = f" (Input: {tokens.get('input', 0)}, Output: {tokens.get('output', 0)} tokens)"
-                logger.info(f"  ├─ {agent}: {count} calls{tokens_info}")
-            logger.info(f"  └─ Total: {sum(self.agent_calls.values())} calls")
-            logger.info("")
+                lines.append(f"  ├─ {agent}: {count} calls{tokens_info}")
+            lines.append(f"  └─ Total: {sum(self.agent_calls.values())} calls")
+            lines.append("")
         
         # Tool calls
         if self.tool_calls:
-            logger.info("TOOL INVOCATIONS:")
+            lines.append("TOOL INVOCATIONS:")
             for tool, count in sorted(self.tool_calls.items(), key=lambda x: -x[1]):
-                logger.info(f"  ├─ {tool}: {count} calls")
-            logger.info(f"  └─ Total: {sum(self.tool_calls.values())} calls")
-            logger.info("")
+                lines.append(f"  ├─ {tool}: {count} calls")
+            lines.append(f"  └─ Total: {sum(self.tool_calls.values())} calls")
+            lines.append("")
         
         # Generated items
         if self.generated_items:
-            logger.info("GENERATED ITEMS:")
-            logger.info(f"  ├─ Total: {len(self.generated_items)} items")
-            # Show first 10 items as preview
-            preview_count = min(10, len(self.generated_items))
-            for i, item_name in enumerate(self.generated_items[:preview_count]):
-                prefix = "  ├─" if i < preview_count - 1 else "  └─"
-                logger.info(f"{prefix} {item_name}")
-            if len(self.generated_items) > preview_count:
-                logger.info(f"  ... and {len(self.generated_items) - preview_count} more items")
-            logger.info("")
+            lines.append("GENERATED ITEMS:")
+            lines.append(f"  ├─ Total: {len(self.generated_items)} items")
+            # Show all items in file (not just preview)
+            for i, item_name in enumerate(self.generated_items):
+                prefix = "  ├─" if i < len(self.generated_items) - 1 else "  └─"
+                lines.append(f"{prefix} {item_name}")
+            lines.append("")
         
         # Errors
         if self.errors:
-            logger.warning("ERRORS:")
+            lines.append("ERRORS:")
             for error in self.errors:
-                logger.warning(f"  ├─ {error}")
-            logger.info("")
+                lines.append(f"  ├─ {error}")
+            lines.append("")
         
-        logger.info("=" * 80)
+        lines.append("=" * 80)
+        return lines
 
+    def print_summary(self):
+        """Print formatted summary to console"""
+        for l in self.get_summary_lines():
+            logger.info(l)
 
 class StatsCollector:
     """Global statistics collector singleton"""
@@ -266,71 +270,7 @@ class StatsCollector:
     @classmethod
     def save_to_file(cls, filepath: Path):
         """Save statistics to text file (same format as print_summary)"""
-        stats = cls.get_stats()
-        filepath.parent.mkdir(parents=True, exist_ok=True)
-        
-        # Build the same content as print_summary
-        lines = []
-        lines.append("=" * 80)
-        lines.append("EXECUTION SUMMARY")
-        lines.append("=" * 80)
-        lines.append(f"Document Type: {stats.doc_type}")
-        lines.append(f"Duration: {stats.duration():.2f} seconds")
-        lines.append("")
-        
-        # Item extraction
-        lines.append("ITEM EXTRACTION:")
-        lines.append(f"  ├─ Items from meta files: {stats.meta_items_count}")
-        lines.append(f"  ├─ Items from code parsing: {stats.code_items_count}")
-        lines.append(f"  └─ Total unique items: {stats.total_items}")
-        lines.append("")
-        
-        # Document generation
-        lines.append("DOCUMENT GENERATION:")
-        for lang, count in sorted(stats.docs_per_language.items()):
-            lines.append(f"  ├─ {lang.upper()}: {count} documents")
-        lines.append(f"  └─ Total: {sum(stats.docs_per_language.values())} documents")
-        lines.append("")
-        
-        # Agent calls
-        if stats.agent_calls:
-            lines.append("AGENT INVOCATIONS:")
-            for agent, count in sorted(stats.agent_calls.items(), key=lambda x: -x[1]):
-                tokens_info = ""
-                if agent in stats.agent_tokens:
-                    tokens = stats.agent_tokens[agent]
-                    tokens_info = f" (Input: {tokens.get('input', 0)}, Output: {tokens.get('output', 0)} tokens)"
-                lines.append(f"  ├─ {agent}: {count} calls{tokens_info}")
-            lines.append(f"  └─ Total: {sum(stats.agent_calls.values())} calls")
-            lines.append("")
-        
-        # Tool calls
-        if stats.tool_calls:
-            lines.append("TOOL INVOCATIONS:")
-            for tool, count in sorted(stats.tool_calls.items(), key=lambda x: -x[1]):
-                lines.append(f"  ├─ {tool}: {count} calls")
-            lines.append(f"  └─ Total: {sum(stats.tool_calls.values())} calls")
-            lines.append("")
-        
-        # Generated items
-        if stats.generated_items:
-            lines.append("GENERATED ITEMS:")
-            lines.append(f"  ├─ Total: {len(stats.generated_items)} items")
-            # Show all items in file (not just preview)
-            for i, item_name in enumerate(stats.generated_items):
-                prefix = "  ├─" if i < len(stats.generated_items) - 1 else "  └─"
-                lines.append(f"{prefix} {item_name}")
-            lines.append("")
-        
-        # Errors
-        if stats.errors:
-            lines.append("ERRORS:")
-            for error in stats.errors:
-                lines.append(f"  ├─ {error}")
-            lines.append("")
-        
-        lines.append("=" * 80)
-        
+        lines = cls.get_stats().get_summary_lines()
         # Write to file
         with open(filepath, 'w', encoding='utf-8') as f:
             f.write('\n'.join(lines))
