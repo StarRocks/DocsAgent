@@ -200,6 +200,7 @@ class VariableDocAgent:
         - Include these sections: Show Name, Scope, Default Value, Type, Description, Introduced in
         - Description should be generated based on the provided metadata and codebase analysis
         - Be specific and avoid vague statements
+        - When using other configurations, use `configuration name` format
         - Keep the documentation less than 300 words
         
         **Code Reading Tools Available**:
@@ -223,7 +224,7 @@ class VariableDocAgent:
         ### ${show Name} ${when scope is global, add "(Global)"}
 
         * **Description**: ${description}
-        * **Default**: ${default value}
+        * **Default**: ${default value, use `` to enclose when the value is a code snippet}
         * **Data Type**: ${variable type}
         * **Introduced in**: ${`Introduced in` from metadata, use '-' if not available}
         
@@ -241,8 +242,9 @@ class VariableDocAgent:
     def _build_user_prompt(self, variable: VariableItem) -> str:
         """Build user prompt with variable metadata"""
         # Format version info
-        version_info = ", ".join(variable.version) if variable.version else "-"
-        
+        versions = [v if v.startswith('v') else 'v' + v for v in variable.version]
+        version_info = ", ".join(versions) if versions else "-"
+
         prompt = f"""
         Generate documentation for the following StarRocks variable:
         

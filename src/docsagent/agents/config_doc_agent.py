@@ -200,9 +200,11 @@ class ConfigDocAgent:
         - Write in professional English
         - Use Markdown format
         - Include these sections: Name, Description, Default Value, Type, Mutable, Unit
-        - Description should be generated based on the provided metadata and codebase analysis
+        - Description should be generated based on the provided metadata and codebase analysis, and there is no need to report whether it is mutable or not
         - Be specific and avoid vague statements
         - Focus on practical usage and implications
+        - The characters < and > should use HTML escape format
+        - When using other configurations, use `configuration name` format
         - Keep the documentation less than 200 words
         
         **Code Reading Tools Available**:
@@ -225,9 +227,9 @@ class ConfigDocAgent:
         Output only the documentation content, no additional commentary. The output format should be like this:
         ##### ${config name} 
 
-        - Default: ${default value}
+        - Default: ${default value, use `` to enclose when the value is a code snippet}
         - Type: ${config type}
-        - Unit: ${unit if applicable, else N/A}
+        - Unit: ${unit if applicable, else -}
         - Is mutable: ${is mutable}
         - Description: ${description}
         - Introduced in: ${`Introduced in` info from metadata, use '-' if not available}
@@ -246,7 +248,8 @@ class ConfigDocAgent:
     def _build_user_prompt(self, config: ConfigItem) -> str:
         """Build user prompt with config metadata"""
         # Format version info
-        version_info = ", ".join(config.version) if config.version else "-"
+        versions = [v if v.startswith('v') else 'v' + v for v in config.version]
+        version_info = ", ".join(versions) if versions else "-"
         
         prompt = f"""
         Generate documentation for the following StarRocks configuration item:
@@ -273,7 +276,7 @@ class ConfigDocAgent:
 
         - Default: {config.defaultValue}
         - Type: {config.type}
-        - Unit: N/A
+        - Unit: -
         - Is mutable: {config.isMutable}
         - Description: {config.comment}
         - Introduced in: {version_info}
