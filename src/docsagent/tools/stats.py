@@ -270,7 +270,7 @@ class StatsCollector:
         """Record an item that was translated"""
         stats = cls.get_stats()
         if item_name not in stats.translate_items:
-            stats.translate_items.append(item_name)
+            stats.translate_items.add(item_name)
             logger.debug(f"Recorded translated item: {item_name}")
     
     @classmethod

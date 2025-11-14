@@ -201,10 +201,10 @@ class ConfigDocAgent:
         - Use Markdown format
         - Include these sections: Name, Description, Default Value, Type, Mutable, Unit
         - Description should be generated based on the provided metadata and codebase analysis, and there is no need to report whether it is mutable or not
+        - When uses other configurations in the Description, use `configuration name` format
         - Be specific and avoid vague statements
         - Focus on practical usage and implications
         - The characters < and > should use HTML escape format
-        - When using other configurations, use `configuration name` format
         - Keep the documentation less than 200 words
         
         **Code Reading Tools Available**:
