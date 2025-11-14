@@ -57,6 +57,8 @@ class ExecutionStats:
     # Generated items tracking
     generated_items: List[str] = field(default_factory=list)  # List of item names that generated docs
     
+    translate_items: set[str] = field(default_factory=set)  # Set of item names that were translated
+    
     # Error tracking
     errors: List[str] = field(default_factory=list)
     
@@ -154,6 +156,16 @@ class ExecutionStats:
             # Show all items in file (not just preview)
             for i, item_name in enumerate(self.generated_items):
                 prefix = "  ├─" if i < len(self.generated_items) - 1 else "  └─"
+                lines.append(f"{prefix} {item_name}")
+            lines.append("")
+            
+        # Translated items
+        if self.translate_items:
+            lines.append("TRANSLATED ITEMS:")
+            lines.append(f"  ├─ Total: {len(self.translate_items)} items")
+            # Show all items in file (not just preview)
+            for i, item_name in enumerate(self.translate_items):
+                prefix = "  ├─" if i < len(self.translate_items) - 1 else "  └─"
                 lines.append(f"{prefix} {item_name}")
             lines.append("")
         
@@ -254,6 +266,14 @@ class StatsCollector:
             logger.debug(f"Recorded generated item: {item_name}")
     
     @classmethod
+    def record_translated_item(cls, item_name: str):
+        """Record an item that was translated"""
+        stats = cls.get_stats()
+        if item_name not in stats.translate_items:
+            stats.translate_items.append(item_name)
+            logger.debug(f"Recorded translated item: {item_name}")
+    
+    @classmethod
     def record_error(cls, error: str):
         """Record an error"""
         stats = cls.get_stats()
@@ -323,6 +343,10 @@ def record_tool_call(tool_name: str):
 def record_generated_item(item_name: str):
     """Record an item that generated documentation"""
     StatsCollector.record_generated_item(item_name)
+    
+def record_translated_item(item_name: str):
+    """Record an item that was translated"""
+    StatsCollector.record_translated_item(item_name)
 
 
 def record_error(error: str):

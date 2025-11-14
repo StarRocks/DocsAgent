@@ -430,6 +430,8 @@ class DocGenerationPipeline(Generic[T]):
             return
         
         logger.debug(f"  Translating {len(items_need_translation)} docs: {source_lang} → {target_lang}")
+        for item in items_need_translation:
+            stats.record_translated_item(item.name)
         
         # Extract source language documents
         source_docs = [item.documents[source_lang] for item in items_need_translation]
