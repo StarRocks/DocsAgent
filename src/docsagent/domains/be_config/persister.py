@@ -47,8 +47,8 @@ class BEConfigPersister(DocPersister):
                     continue
                 
                 target_docs[lang] += f"### {CATALOGS_LANGS[catalog][lang]}\n\n"
-                
-                for config in catalogs[catalog]:
+                sorted_configs = sorted(catalogs[catalog], key=lambda c: c.name)
+                for config in sorted_configs:
                     if lang in config.documents and config.documents[lang].strip():
                         target_docs[lang] += config.documents[lang].strip() + "\n\n"
                     else:
