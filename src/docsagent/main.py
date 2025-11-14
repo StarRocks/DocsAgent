@@ -194,6 +194,13 @@ def extract_meta(args):
     # Initialize statistics
     stats.reset_stats(doc_type=args.type)
     
+    # Record command and arguments
+    stats.set_command(" ".join(sys.argv))
+    stats.set_args({
+        "type": args.type,
+        "extract": True,
+    })
+    
     try:
         if args.type in ['fe_config', 'be_config']:
             # Extract config metadata
@@ -242,6 +249,21 @@ def generate_docs(args):
     
     # Initialize statistics
     stats.reset_stats(doc_type=args.type)
+    
+    # Record command and arguments
+    stats.set_command(" ".join(sys.argv))
+    stats.set_args({
+        "type": args.type,
+        "generate": True,
+        "meta": args.meta,
+        "force_search_code": args.force_search_code,
+        "include_miss_usage": args.include_miss_usage,
+        "track_version": args.track_version,
+        "without_llm": args.without_llm,
+        "limit": args.limit,
+        "ci": args.ci,
+        "pr": args.pr,
+    })
     
     if args.pr:
         args.ci = True  # Ensure commit is enabled if PR is requested
