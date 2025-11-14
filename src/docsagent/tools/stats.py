@@ -38,6 +38,8 @@ class ExecutionStats:
     start_time: datetime = field(default_factory=datetime.now)
     end_time: Optional[datetime] = None
     doc_type: str = ""  # fe_config, be_config, variables, functions
+    command: str = ""  # Command line used
+    args: Dict[str, any] = field(default_factory=dict)  # Command arguments
     
     # Item extraction statistics
     meta_items_count: int = 0  # Items loaded from meta files
@@ -113,6 +115,15 @@ class ExecutionStats:
         lines.append("=" * 80)
         lines.append(f"Document Type: {self.doc_type}")
         lines.append(f"Duration: {self.duration():.2f} seconds")
+        
+        # Command and arguments
+        if self.command:
+            lines.append(f"Command: {self.command}")
+        if self.args:
+            lines.append("Arguments:")
+            for key, value in sorted(self.args.items()):
+                lines.append(f"  ├─ {key}: {value}")
+        
         lines.append("")
         
         # Item extraction
@@ -207,6 +218,20 @@ class StatsCollector:
         if cls._stats is None:
             cls.reset()
         return cls._stats
+    
+    @classmethod
+    def set_command(cls, command: str):
+        """Set the command line used"""
+        stats = cls.get_stats()
+        stats.command = command
+        logger.debug(f"Recorded command: {command}")
+    
+    @classmethod
+    def set_args(cls, args: Dict[str, any]):
+        """Set command arguments"""
+        stats = cls.get_stats()
+        stats.args = args
+        logger.debug(f"Recorded arguments: {args}")
     
     @classmethod
     def record_meta_items(cls, count: int):
@@ -308,6 +333,16 @@ class StatsCollector:
 def reset_stats(doc_type: str = ""):
     """Reset statistics for new execution"""
     StatsCollector.reset(doc_type)
+
+
+def set_command(command: str):
+    """Set the command line used"""
+    StatsCollector.set_command(command)
+
+
+def set_args(args: Dict[str, any]):
+    """Set command arguments"""
+    StatsCollector.set_args(args)
 
 
 def record_meta_items(count: int):
