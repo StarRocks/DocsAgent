@@ -151,6 +151,13 @@ Examples:
         help='Enable version tracking for items without version info'
     )
     
+        
+    parser.add_argument(
+        '-n', '--name',
+        type=str,
+        help='Filter the item by specific name'
+    )
+    
     args = parser.parse_args()
     
     # Load configuration
@@ -263,6 +270,7 @@ def generate_docs(args):
         "limit": args.limit,
         "ci": args.ci,
         "pr": args.pr,
+        "name": args.name
     })
     
     if args.pr:
@@ -295,7 +303,8 @@ def generate_docs(args):
             auto_commit=args.ci,
             create_pr=args.pr,
             limit=args.limit,
-            track_version=args.track_version
+            track_version=args.track_version,
+            name_filter=args.name
         )
         
         # Log results

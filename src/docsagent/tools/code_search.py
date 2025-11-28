@@ -23,6 +23,8 @@ from loguru import logger
 
 import hyperscan
 
+from docsagent.config import config
+
 
 class SearchMatch(NamedTuple):
     """Single search match result"""
@@ -52,16 +54,10 @@ class CodeFileSearch:
         
         Args:
             code_paths: List of paths to search in
-            file_suffix: (Deprecated) List of file suffixes, use file_filter instead
             file_filter: Callable that takes a file Path and returns True to include
             dir_filter: Callable that takes a dir Path and returns True to include
         
         Examples:
-            # Use file_suffix (old way)
-            searcher = CodeFileSearch(
-                code_paths=['/path'],
-                file_suffix=['.java', '.cpp']
-            )
             
             # Use lambda filter (new way)
             searcher = CodeFileSearch(
@@ -71,6 +67,9 @@ class CodeFileSearch:
             )
         """
         self.code_paths = code_paths
+        if any([c for c in self.code_paths if config.STARROCKS_HOME not in c]):
+            logger.error("keywords[{}] code_paths[{}] must include STARROCKS_HOME[{}]", keywords, self.code_paths, config.STARROCKS_HOME)
+            raise ValueError("code_paths must include STARROCKS_HOME")
         
         # File filter
         self.file_filter = file_filter if file_filter is not None else lambda f: f.suffix in ['.java', '.cpp', '.h', '.hpp', '.cc']
@@ -83,7 +82,7 @@ class CodeFileSearch:
         self._hs_database = None
         self._hs_keyword_map = {}  # Map pattern ID to keyword
 
-    def search(self, keyworks: List[str]) -> Dict[str, List[str]]:
+    def search(self, keywords: List[str]) -> Dict[str, List[str]]:
         """Search for keywords in the code paths (legacy method)
         
         Returns:
@@ -96,7 +95,7 @@ class CodeFileSearch:
             return {}
 
         # Compile Hyperscan patterns
-        self._compile_hyperscan_patterns(keyworks)
+        self._compile_hyperscan_patterns(keywords)
 
         results = defaultdict(list)
         file_count = 0
@@ -112,7 +111,7 @@ class CodeFileSearch:
             if path_obj.is_file():
                 if self.file_filter(path_obj):
                     file_count += 1
-                    keyword_line_map = self._search_file(path_obj, keyworks)
+                    keyword_line_map = self._search_file(path_obj, keywords)
                     for keyword, line_numbers in keyword_line_map.items():
                         for line_num in line_numbers:
                             results[keyword].append(f"{str(path_obj)}:{line_num}")
@@ -132,7 +131,7 @@ class CodeFileSearch:
                         continue
                     
                     file_count += 1
-                    keyword_line_map = self._search_file(file_path, keyworks)
+                    keyword_line_map = self._search_file(file_path, keywords)
                     
                     # Build result dict: {keyword: [file_path:line_number]}
                     for keyword, line_numbers in keyword_line_map.items():

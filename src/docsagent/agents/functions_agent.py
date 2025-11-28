@@ -248,12 +248,6 @@ class FunctionDocAgent:
         - Focus on practical usage with real examples
         - Examples should use Plain text code blocks for SQL output
         
-        **Code Reading Tools Available**:
-        You have access to two tools to read and search the codebase:
-        1. `search_code`: Search for keywords in code files (e.g., find function implementation)
-        2. `read_file`: Read specific file content (e.g., read function code details)
-        {sql_tool_instruction}
-        
         **About UseLocations** (IMPORTANT):
         - The `UseLocations` field MIGHT contain files related to function implementation
         - **WARNING**: These locations are NOT always accurate and may include false positives
@@ -264,6 +258,15 @@ class FunctionDocAgent:
         - This field contains the actual C++ implementation function names
         - Use these names to search for the real implementation code
         - Example: If implement_fns contains "StringFunctions::like", search for that in the codebase
+        
+        **Code Reading Tools Available**:
+        You have access to two tools to read and search the codebase:
+        1. `search_code`: Search for keywords in code files (e.g. find function implementation)
+           - **REQUIRED**: The `file_paths` parameter MUST be specific file paths from the UseLocations field
+           - Example: search_code(keywords=["StringFunctions::like"], file_paths=["/path/from/UseLocations/file.cpp"])
+        2. `read_file`: Read specific file content (e.g. read function code details)
+           - **REQUIRED**: The `file_path` parameter MUST be from UseLocations field
+        {sql_tool_instruction}        
         
         **Recommended workflow**:
         1. Review function metadata (name, signature, implement_fns)
@@ -325,6 +328,12 @@ class FunctionDocAgent:
     
     def _build_user_prompt(self, func: FunctionItem) -> str:
         """Build user prompt with function metadata"""
+        
+        # Format UseLocations if available
+        use_locations_text = "  None available"
+        if func.useLocations:
+            use_locations_text = '\n'.join([f"  - {loc}" for loc in func.useLocations])
+        
         prompt = f"""
         Generate documentation for the following StarRocks SQL function:
         
@@ -334,6 +343,8 @@ class FunctionDocAgent:
         {chr(10).join([f"  - {sig}" for sig in func.signature])}
         **Implementation Functions**: 
         {chr(10).join([f"  - {impl}" for impl in func.implement_fns])}
+        **UseLocations** (file paths where this function might be used or implemented):
+        {use_locations_text}
         **Test Cases**: 
         {chr(10).join([f"  - {test}" for test in func.testCases]) if func.testCases else '  None available'}
 
