@@ -338,7 +338,7 @@ class FunctionDocAgent:
         Generate documentation for the following StarRocks SQL function:
         
         **Function Name**: {func.name}
-        **Aliases**: {', '.join(func.alias) if func.alias else 'None'}
+        **Aliases**: {", ".join([alias for alias in func.alias])}
         **Signatures**: 
         {chr(10).join([f"  - {sig}" for sig in func.signature])}
         **Implementation Functions**: 
