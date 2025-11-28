@@ -130,9 +130,9 @@ def search_code(
     - Get file paths and line numbers for further reading
     
     Args:
-        keywords: Keywords to search (e.g., ['ConfigBase', '@ConfigParam'])
-        file_paths: File or directory paths to search in
-        context_lines: Number of lines before/after match to show (default: 3)
+        keywords: REQUIRED. Keywords to search (e.g., ['ConfigBase', '@ConfigParam'])
+        file_paths: REQUIRED. List of specific file paths to search. Use paths from UseLocations field provided in the metadata.
+        context_lines: Number of lines before/after match to show (default: 10)
         
     Returns:
         Formatted search results with file paths, line numbers, and context

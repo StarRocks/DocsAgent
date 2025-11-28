@@ -207,16 +207,18 @@ class ConfigDocAgent:
         - The characters < and > should use HTML escape format
         - Keep the documentation less than 200 words
         
-        **Code Reading Tools Available**:
-        You have access to two tools to read and search the codebase:
-        1. `search_code`: Search for keywords in code files (e.g., find where config is used)
-        2. `read_file`: Read specific file content (e.g., read implementation details)
-        
         **About UseLocations**:
         - The `UseLocations` field contains file paths where this configuration is USED in the codebase
         - These locations show real usage and help you understand the config's purpose
         - You can use `read_file` to read these files and understand the context
         - Example: If UseLocations shows "fe/src/main/java/ConfigManager.java:42", you can read that file
+
+        **Code Reading Tools Available**:
+        You have access to two tools to read and search the codebase:
+        1. `search_code`: Search for keywords in code files (e.g. find function implementation)
+           - **REQUIRED**: The `file_paths` parameter MUST be specific file paths from the UseLocations field
+        2. `read_file`: Read specific file content (e.g. read function code details)
+           - **REQUIRED**: The `file_path` parameter MUST be from UseLocations field                
 
         **Recommended workflow**:
         1. Review the config metadata (name, type, default, comment, UseLocations)

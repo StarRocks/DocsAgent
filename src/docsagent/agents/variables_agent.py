@@ -202,17 +202,19 @@ class VariableDocAgent:
         - Be specific and avoid vague statements
         - When using other configurations, use `configuration name` format
         - Keep the documentation less than 300 words
-        
-        **Code Reading Tools Available**:
-        You have access to two tools to read and search the codebase:
-        1. `search_code`: Search for keywords in code files (e.g., find where variable is used)
-        2. `read_file`: Read specific file content (e.g., read implementation details)
-        
+
         **About UseLocations**:
         - The `UseLocations` field contains file paths where this variable is USED in the codebase
         - These locations show real usage and help you understand the variable's purpose
         - You can use `read_file` to read these files and understand how the variable is used
         - Example: If UseLocations shows "fe/src/main/java/VariableManager.java:156", you can read that file
+
+        **Code Reading Tools Available**:
+        You have access to two tools to read and search the codebase:
+        1. `search_code`: Search for keywords in code files (e.g. find function implementation)
+           - **REQUIRED**: The `file_paths` parameter MUST be specific file paths from the UseLocations field
+        2. `read_file`: Read specific file content (e.g. read function code details)
+           - **REQUIRED**: The `file_path` parameter MUST be from UseLocations field        
         
         **Recommended workflow**:
         1. Review the variable metadata (name, type, default, scope, comment, UseLocations)

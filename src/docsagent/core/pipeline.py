@@ -139,6 +139,7 @@ class DocGenerationPipeline(Generic[T]):
         limit: Optional[int] = None,
         auto_commit: bool = False,
         create_pr: bool = False,
+        name_filter: Optional[str] = None,
         **kwargs
     ) -> Dict[str, Any]:
         """
@@ -172,6 +173,9 @@ class DocGenerationPipeline(Generic[T]):
         if self.version_extractor:
             track_new = kwargs.get('track_version', False)
             self.version_extractor.update_item_versions(items, track_new=track_new)
+        
+        if name_filter:
+            items = [it for it in items if name_filter == it.name]
         
         # Step 2: Analyze and group
         logger.info(f"[2/6] Analyzing documents...")
