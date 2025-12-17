@@ -201,6 +201,7 @@ class VariableDocAgent:
         - Description should be generated based on the provided metadata and codebase analysis
         - Be specific and avoid vague statements
         - When using other configurations, use `configuration name` format
+        - The characters </>/>=/<= must use HTML escape format
         - Keep the documentation less than 300 words
 
         **About UseLocations**:
@@ -228,7 +229,7 @@ class VariableDocAgent:
         * **Description**: ${description}
         * **Default**: ${default value, use `` to enclose when the value is a code snippet}
         * **Data Type**: ${variable type}
-        * **Introduced in**: ${`Introduced in` from metadata, use '-' if not available}
+        * **Introduced in**: ${Introduced in from metadata, use '-' if not available}
         
         output example:
         ### tablet_internal_parallel_mode
@@ -281,16 +282,15 @@ class VariableDocAgent:
     
     def _ensure_markdown_structure(self, raw: str, variable: VariableItem) -> str:
         """Ensure the documentation has proper Markdown structure"""
-        # If raw output already looks good (starts with ###), return it
-        if raw.startswith('###') and len(raw) > 50:
-            return raw
-        
         # Otherwise, wrap it in a basic structure
         name = variable.name
-        
         if not raw.startswith('#'):
             logger.warning(f"Raw output missing header for {name}, adding header")
+        
         formatted = raw
+        if "<" in formatted or ">" in formatted:
+            logger.warning(f"Raw output contains unescaped characters for {name}, escaping them")
+            formatted = formatted.replace("<", "&lt;").replace(">", "&gt;")
         
         return formatted.strip()
     

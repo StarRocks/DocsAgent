@@ -201,10 +201,9 @@ class ConfigDocAgent:
         - Use Markdown format
         - Include these sections: Name, Description, Default Value, Type, Mutable, Unit
         - Description should be generated based on the provided metadata and codebase analysis, and there is no need to report whether it is mutable or not
-        - When uses other configurations in the Description, use `configuration name` format
         - Be specific and avoid vague statements
         - Focus on practical usage and implications
-        - The characters < and > should use HTML escape format
+        - The characters </>/>=/<= must use HTML escape format
         - Keep the documentation less than 200 words
         
         **About UseLocations**:
@@ -229,12 +228,12 @@ class ConfigDocAgent:
         Output only the documentation content, no additional commentary. The output format should be like this:
         ##### ${config name} 
 
-        - Default: ${default value, use `` to enclose when the value is a code snippet}
+        - Default: ${default value}
         - Type: ${config type}
         - Unit: ${unit if applicable, else -}
         - Is mutable: ${is mutable}
-        - Description: ${description}
-        - Introduced in: ${`Introduced in` info from metadata, use '-' if not available}
+        - Description: ${description, use `configuration name` format when uses other configurations}
+        - Introduced in: ${Introduced in info from metadata, use '-' if not available}
         
         output example:
         ##### black_host_history_sec
@@ -287,10 +286,6 @@ class ConfigDocAgent:
     
     def _ensure_markdown_structure(self, raw: str, config: ConfigItem) -> str:
         """Ensure the documentation has proper Markdown structure"""
-        # If raw output already looks good, return it
-        if raw.startswith('##') and len(raw) > 50:
-            return raw
-        
         # Otherwise, wrap it in a basic structure
         name = config.name
         
@@ -298,6 +293,10 @@ class ConfigDocAgent:
             logger.warning(f"Raw output missing header for {name}, adding header")
         
         formatted = raw
+        if "<" in formatted or ">" in formatted:
+            logger.warning(f"Raw output contains unescaped characters for {name}, escaping them")
+            formatted = formatted.replace("<", "&lt;").replace(">", "&gt;")
+        
         return formatted.strip()
     
     def _build_classify_system_prompt(self) -> str:
