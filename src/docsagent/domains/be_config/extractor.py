@@ -231,6 +231,11 @@ class BEConfigExtractor(ItemExtractor):
         logger.debug(f"Total config items found: {len(all_items)}")
         return all_items
     
+    def _is_ignored_item(self, item: ConfigItem) -> bool:
+        if item.comment and "shared-data mode" in item.comment.lower():
+            return False
+        return super()._is_ignored_item(item)
+    
     def get_statistics(self, items: List[ConfigItem]) -> dict:
         """Calculate basic statistics"""
         stats = {
