@@ -228,10 +228,7 @@ class ItemExtractor(Protocol[T]):
         # Filter items without usage (if configured)
         if ignore_miss_usage:
             original_count = len(items)
-            items = [
-                item for item in items 
-                if item.useLocations is not None and len(item.useLocations) > 0
-            ]
+            items = [item for item in items if not self._is_ignored_item(item)]
             filtered = original_count - len(items)
             if filtered > 0:
                 logger.info(f"Filtered {filtered} items without usage: ")
@@ -244,6 +241,12 @@ class ItemExtractor(Protocol[T]):
         logger.info(f"Extracted {len(items)} items: {stats}")
         
         return items
+    
+    def _is_ignored_item(self, item: T) -> bool:
+        """
+        Check if an item should be ignored.
+        """
+        return item.useLocations is None or len(item.useLocations) <= 0
     
     def load_meta(self) -> List[T]:
         """
