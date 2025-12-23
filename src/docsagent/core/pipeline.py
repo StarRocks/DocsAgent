@@ -169,13 +169,18 @@ class DocGenerationPipeline(Generic[T]):
         # Record meta items count
         stats.record_meta_items(len(items))
         
+        if name_filter:
+            items = [it for it in items if name_filter == it.name]
+            
+        ignore_metas = self._read_ignore_meta()
+        if ignore_metas:
+            items = [it for it in items if it.name not in ignore_metas]
+            logger.info(f"  ✓ After ignore meta: {len(items)} items remain")
+        
         # Step 1.5: Update item versions (track new if requested, or load from cache)
         if self.version_extractor:
             track_new = kwargs.get('track_version', False)
             self.version_extractor.update_item_versions(items, track_new=track_new)
-        
-        if name_filter:
-            items = [it for it in items if name_filter == it.name]
         
         # Step 2: Analyze and group
         logger.info(f"[2/6] Analyzing documents...")
@@ -577,5 +582,16 @@ class DocGenerationPipeline(Generic[T]):
             'item_type': self.item_type_name
         }
 
+    def _read_ignore_meta(self) -> List[str]:
+        from ..config import config
+        ignore_file = Path(config.META_DIR) / 'ignore.meta'
+        if not ignore_file.exists():
+            return []
+        
+        with ignore_file.open('r', encoding='utf-8') as f:
+            ignores = [line.strip() for line in f if line.strip()]
+        
+        logger.info(f"Loaded {len(ignores)} ignore patterns from {ignore_file}")
+        return ignores
 
 __all__ = ['DocGenerationPipeline', 'DEFAULT_SEPARATOR', 'DEFAULT_BATCH_SIZE']

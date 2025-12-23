@@ -234,7 +234,9 @@ class BaseVersionExtractor:
                 if display_list:
                     item.version = display_list
                     updated_count += 1
-        
+            
+            if item.version is None:
+                item.version = []
         logger.info(f"  ✓ Updated {updated_count}/{len(items)} items with version info")
         return updated_count
     
