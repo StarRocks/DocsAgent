@@ -54,5 +54,5 @@ class BEConfigDocGenerator(DocGenerator):
             
         except Exception as e:
             stats.record_error(f"Generation failed for {item.name}: {e}")
-            logger.error(f"Generation failed for {item.name}: {e}")
+            logger.exception(f"Generation failed for {item.name}: {e}")
             return self.agent.generate_fallback_doc(item)
